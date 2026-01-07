@@ -1,0 +1,16 @@
+import {Router} from "express";
+import auditController from "../controllers/auditLog.controllers.js";
+import {authMiddleware,isVendor,isAdmin} from "../middlewares/auth.middleware.js";
+
+const router = Router();
+
+// Admin: see everything
+router.get("/all", authMiddleware, isAdmin, auditController.getAllAuditLogs);
+
+// Vendor: see only their own products' logs
+router.get("/vendor", authMiddleware, isVendor, auditController.getVendorAuditLogs);
+
+// Admin & Vendor: logs of a specific product
+router.get("/product/:productId", authMiddleware, auditController.getProductAuditLogs);
+
+export default router;

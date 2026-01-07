@@ -22,4 +22,19 @@ async function authMiddleware(req, res, next) {
         res.status(401).json({ message: 'Invalid or expired authentication token' });
     }
 }
-export default authMiddleware;
+
+async function isAdmin(req, res, next) {
+    if (req.user.role !== 'admin') {
+        return res.status(403).json({ message: 'Access denied: Admins only' });
+    }
+    next();
+}
+
+async function isVendor(req, res, next) {
+    if (req.user.role !== 'vendor') {
+        return res.status(403).json({ message: 'Access denied: Vendors only' });
+    }
+    next();
+}
+
+export { authMiddleware, isAdmin, isVendor };

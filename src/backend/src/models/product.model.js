@@ -7,7 +7,7 @@ const productSchema = new mongoose.Schema({
     category: { type: String, required: true },
     stock: { type: Number, required: true },
 
-    batchId: { type: String, required: true, unique: true },
+    batchId: { type: String, required: true},
     manufactureDate: { type: Date, required: true },
     expiryDate: { type: Date, required: true },
 
@@ -35,4 +35,6 @@ const productSchema = new mongoose.Schema({
     timestamps: true
 });
 
-export default mongoose.model("Product", productSchema);
+const Product = mongoose.model("Product", productSchema);
+
+export default Product;
