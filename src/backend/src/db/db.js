@@ -1,10 +1,10 @@
 import mongoose from "mongoose";
 
-const db_password = process.env.db_password;
+const MONGO_URI = process.env.MONGO_URI;
 
 const connectDB = async () => {
     try {
-        await mongoose.connect(`mongodb+srv://piyuscollege_db_user:${db_password}@cluster0.lksc954.mongodb.net/?appName=Cluster0`)
+        await mongoose.connect(MONGO_URI);
         }catch (error) {
         console.error("Error connecting to MongoDB:", error);
     }finally {

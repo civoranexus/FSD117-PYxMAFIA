@@ -1,18 +1,42 @@
 import QRCode from "qrcode";
-import path from "path";
+import cloudinary from "../config/cloudinary.js";
 import fs from "fs";
 
 export const generateQR = async (token) => {
-  const uploadDir = path.join(process.cwd(), "uploads/qrcodes");
+  // generate QR in memory
+  const qrBuffer = await QRCode.toBuffer(token);
 
-  if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
-  }
+  // write temp file
+  const tempPath = `./temp-${token}.png`;
+  fs.writeFileSync(tempPath, qrBuffer);
 
-  const fileName = `${token}.png`;
-  const filePath = path.join(uploadDir, fileName);
+  // upload to cloudinary
+  const result = await cloudinary.uploader.upload(tempPath, {
+    folder: "vendorverify/qrcodes"
+  });
 
-  await QRCode.toFile(filePath, token);
+  // cleanup temp file
+  fs.unlinkSync(tempPath);
 
-  return `/uploads/qrcodes/${fileName}`;
+  return result.secure_url;
 };
+
+
+// import QRCode from "qrcode";
+// import path from "path";
+// import fs from "fs";
+
+// export const generateQR = async (token) => {
+//   const uploadDir = path.join(process.cwd(), "uploads/qrcodes");
+
+//   if (!fs.existsSync(uploadDir)) {
+//     fs.mkdirSync(uploadDir, { recursive: true });
+//   }
+
+//   const fileName = `${token}.png`;
+//   const filePath = path.join(uploadDir, fileName);
+
+//   await QRCode.toFile(filePath, token);
+
+//   return `/uploads/qrcodes/${fileName}`;
+// };

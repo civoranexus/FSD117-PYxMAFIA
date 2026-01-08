@@ -68,6 +68,21 @@ async function getProductByQRCode(req, res) {
                 await product.save();
             }
         }
+        // 🚨 FRAUD DETECTION
+        const recentScans = await AuditLog.find({ qrCode })
+            .sort({ scannedAt: -1 })
+            .limit(5);
+
+        const ipSet = new Set(recentScans.map(log => log.ipAddress));
+
+        if (product.verificationCount > 1 || ipSet.size > 1) {
+            product.isSuspicious = true;
+            product.qrStatus = "blocked";
+            scanResult = "Blocked";
+        }
+
+        await product.save();
+
 
         // 🔐 Always create audit log
         await AuditLog.create({
@@ -78,8 +93,8 @@ async function getProductByQRCode(req, res) {
             ipAddress: req.ip,
             userAgent: req.headers["user-agent"]
         });
-        
-        res.status(200).json({status: scanResult, product});
+
+        res.status(200).json({ status: scanResult,suspicious: product.isSuspicious, product });
     } catch (error) {
         console.error("Error fetching product by QR code:", error);
         res.status(500).json({ message: 'Internal server error' });
