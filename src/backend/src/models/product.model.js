@@ -23,7 +23,7 @@ const productSchema = new mongoose.Schema({
 
     qrStatus: { 
         type: String, 
-        enum: ['generated', 'printed', 'active', 'used', 'blocked'], 
+        enum: ['generated', 'active', 'used', 'blocked'], 
         default: 'generated' 
     },
 

@@ -37,9 +37,27 @@ async function getProductAuditLogs(req, res) {
     }
 }
 
+async function getAuditLogsByQR(req, res) {
+    const { qrCode } = req.params;
+    try {
+        const auditLogs = await AuditLog.find({ qrCode }).
+            populate("productId", "productName").
+            populate("vendorId", "name email").
+            sort({ scannedAt: -1 });
+        if (!auditLogs) {
+            return res.status(404).json({ message: 'No audit logs found for this QR code' });
+        }
+        res.status(200).json(auditLogs);
+    } catch (error) {
+        console.error("Error fetching audit logs by QR code:", error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+}
+
 const auditController = {
     getAllAuditLogs,
     getVendorAuditLogs,
+    getAuditLogsByQR,
     getProductAuditLogs
 };
 export default auditController;

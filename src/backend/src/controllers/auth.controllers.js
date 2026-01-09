@@ -5,6 +5,8 @@ import jwt from "jsonwebtoken";
 
 async function registerUser(req, res) {
     const { name, email, phone_no, password } = req.body;
+    const safeRole = role === "vendor" ? "vendor" : "user";
+
 
     try {
         // Check if user with the same email or phone number already exists
@@ -23,7 +25,7 @@ async function registerUser(req, res) {
         const hashedPassword = bcrypt.hashSync(password, 10);
         
         // Create a new user
-        const newUser = new User({ name, email, phone_no, password: hashedPassword });
+        const newUser = new User({ name, email, phone_no, role: safeRole, password: hashedPassword });
         await newUser.save();
 
         // Generate JWT token

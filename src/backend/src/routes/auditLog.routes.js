@@ -6,6 +6,8 @@ const router = Router();
 
 // Admin: see everything
 router.get("/all", authMiddleware, isAdmin, auditController.getAllAuditLogs);
+router.get("/qr/:qrCode", authMiddleware, isAdmin, auditController.getAuditLogsByQR); // check audit logs by QR code
+
 
 // Vendor: see only their own products' logs
 router.get("/vendor", authMiddleware, isVendor, auditController.getVendorAuditLogs);
