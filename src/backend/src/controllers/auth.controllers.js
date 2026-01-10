@@ -5,7 +5,7 @@ import jwt from "jsonwebtoken";
 
 async function registerUser(req, res) {
     const { name, email, phone_no, password } = req.body;
-    const safeRole = role === "vendor" ? "vendor" : "user";
+    const safeRole = "vendor"; // Assign a default role to new users
 
 
     try {
@@ -14,9 +14,9 @@ async function registerUser(req, res) {
         if (existingUser) {
             return res.status(400).json({ message: 'User with this email or phone number already exists, please login instead' });
         }
-        if(phone_no.length == 10){
-            return res.status(400).json({ message: 'Phone number is not valid' });
-        }
+        // if(phone_no.length == 10){
+        //     return res.status(400).json({ message: 'Phone number is not valid' });
+        // }
         if(password.length < 6){
             return res.status(400).json({ message: 'Password must be at least 6 characters long' });
         }
