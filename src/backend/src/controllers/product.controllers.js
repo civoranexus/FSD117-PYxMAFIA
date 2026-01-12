@@ -3,6 +3,7 @@ import AuditLog from "../models/auditLog.model.js";
 import crypto from 'crypto';
 import { generateQR } from "../utils/generateQR.js";
 import geoip from "geoip-lite";
+import User from "../models/user.model.js";
 
 
 async function createProduct(req, res) {
@@ -229,6 +230,21 @@ async function updateProduct(req, res) {
     }
 }
 
+async function vendorName(req, res) {
+    const vendorId = req.user._id;
+    try {
+        const name = await User.find({ _id: vendorId }).select('name').limit(1);
+        if (name.length === 0) {
+            return res.status(404).json({ message: 'No products found for this vendor' });
+        }
+        const vendorName = name[0].name;
+        res.status(200).json({ vendorName });
+    } catch (error) {
+        console.error("Error fetching vendor name:", error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+}
+
 const productController = {
     createProduct,
     getProducts,
@@ -236,6 +252,7 @@ const productController = {
     blockProduct,
     activateProduct,
     deleteProduct,
-    updateProduct
+    updateProduct,
+    vendorName
 };
 export default productController;

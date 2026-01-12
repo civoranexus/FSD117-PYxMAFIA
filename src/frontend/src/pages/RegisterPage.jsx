@@ -1,7 +1,6 @@
 import React from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import NavigationBar from '../components/NavigationBar.jsx'
-import axios from 'axios'
 import apiClient from '../api/axios.js'
 
 const RegisterPage = () => {
@@ -16,7 +15,19 @@ const RegisterPage = () => {
     try {
       const response = await apiClient.post('/auth/register', data);
       console.log('Registration successful:', response.data);
-      navigate('/vendor-dashboard');
+      const vendorName =
+        response?.data?.vendorName ||
+        response?.data?.user?.vendorName ||
+        response?.data?.user?.name ||
+        data?.vendorName ||
+        data?.name ||
+        '';
+
+      if (vendorName) {
+        window.localStorage.setItem('vendorName', String(vendorName));
+      }
+
+      navigate('/vendor-dashboard', { state: { vendorName } });
     } catch (error) {
       console.error('Registration error:', error);
     }

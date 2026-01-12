@@ -1,10 +1,68 @@
-import React from 'react'
+import React, {useState} from 'react'
+import { useNavigate } from 'react-router-dom';
 import NavigationBar from '../components/NavigationBar.jsx'
+import QRScanner from '../components/QRScanner.jsx';
+import apiClient from '../api/axios.js';
 
 const HomePage = () => {
+
+    const [showScanner, setShowScanner] = useState(false);
+    const [isVerifying, setIsVerifying] = useState(false);
+    const [scanError, setScanError] = useState('');
+    const navigate = useNavigate();
+
+    const handleScan = (result) => {
+        setShowScanner(false);
+        console.log("Scanned QR:", result);
+
+        setScanError('');
+        setIsVerifying(true);
+
+        // here you will call backend: /api/verify/:qrCode
+        apiClient.get(`/products/${encodeURIComponent(result)}`)
+            .then(response => {
+                console.log("Verification result:", response.data);
+                const data = response.data;
+
+                const invalidByFlag =
+                    data?.valid === false ||
+                    data?.verified === false ||
+                    data?.isValid === false ||
+                    data?.isVerified === false ||
+                    data?.success === false;
+
+                if (invalidByFlag) {
+                    setScanError(data?.message || 'Product verification failed.');
+                    return;
+                }
+
+                // Redirect to Product page with the data
+                navigate('/product', {
+                    state: {
+                        qr: result,
+                        productResult: data,
+                    },
+                });
+            })
+            .catch(error => {
+                console.error("Verification error:", error);
+
+                const message =
+                    error?.response?.data?.message ||
+                    error?.message ||
+                    'Unable to verify QR code. Please try again.';
+                setScanError(message);
+                setShowScanner(false);
+            })
+            .finally(() => {
+                setIsVerifying(false);
+            });
+
+    };
+
     return (
         <div className="min-h-screen bg-slate-50 flex flex-col">
-            <NavigationBar/>
+            <NavigationBar />
 
             <main className="flex-1 pb-24">
                 {/* Hero */}
@@ -19,8 +77,43 @@ const HomePage = () => {
                     </div>
                 </section>
 
-                {/* Scan Section */}
+
                 <section id="scan" className="px-4 mt-8">
+                    <div className="mx-auto w-full max-w-lg">
+                        <div className="bg-white rounded-2xl shadow-sm ring-1 ring-slate-200 p-5">
+
+                            {/* Camera Preview Box */}
+                            <div
+                                className="w-full h-48 bg-slate-100 rounded-xl flex items-center justify-center overflow-hidden ring-1 ring-slate-200"
+                            >
+                                {showScanner ? (
+                                    <QRScanner onScan={handleScan} />
+                                ) : (
+                                    <span className="text-slate-400 text-sm">Camera Preview Area</span>
+                                )}
+                            </div>
+
+                            {/* Scan Button */}
+                            <button
+                                onClick={() => setShowScanner(true)}
+                                disabled={isVerifying}
+                                className="mt-4 w-full bg-black text-white py-3 rounded-xl font-semibold hover:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-black/20 disabled:opacity-60 disabled:cursor-not-allowed"
+                            >
+                                {isVerifying ? 'Verifying…' : 'Scan QR Code'}
+                            </button>
+
+                            {scanError ? (
+                                <p className="mt-3 text-sm text-red-600 text-center">{scanError}</p>
+                            ) : null}
+
+                            
+                        </div>
+                    </div>
+                </section>
+
+
+                {/* Scan Section */}
+                {/* <section id="scan" className="px-4 mt-8">
                     <div className="mx-auto w-full max-w-lg">
                         <div className="bg-white rounded-2xl shadow-sm ring-1 ring-slate-200 p-5">
                             <div className="w-full h-48 bg-slate-100 rounded-xl flex items-center justify-center text-slate-400 text-sm ring-1 ring-slate-200">
@@ -28,10 +121,12 @@ const HomePage = () => {
                             </div>
 
                             <button
-                                type="button"
+                                type="submit"
+                                // onSubmit={handleScan}
                                 className="mt-4 w-full bg-black text-white py-3 rounded-xl font-semibold hover:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-black/20"
                             >
                                 Scan QR Code
+                                <QRScanner onScan={handleScan} />
                             </button>
 
                             <div className="mt-3 text-center">
@@ -44,7 +139,7 @@ const HomePage = () => {
                             </div>
                         </div>
                     </div>
-                </section>
+                </section> */}
 
                 {/* How It Works */}
                 <section id="help" className="px-4 mt-10">

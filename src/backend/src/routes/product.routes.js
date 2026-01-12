@@ -15,5 +15,6 @@ router.post('/activate/:id', authMiddleware, productController.activateProduct);
 router.post('/block/:id', authMiddleware, productController.blockProduct);
 router.post('/delete/:id', authMiddleware, productController.deleteProduct);
 router.post('/update/:id', authMiddleware, productController.updateProduct);
+router.get('/vendor/name', authMiddleware, productController.vendorName);
 
 export default router;

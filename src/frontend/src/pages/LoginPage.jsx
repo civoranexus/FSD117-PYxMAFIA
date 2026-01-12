@@ -15,7 +15,18 @@ const LoginPage = () => {
     try {
       const response = await apiClient.post('/auth/login', data);
       console.log('Login successful:', response.data);
-      navigate('/vendor-dashboard');
+      const vendorName =
+        response?.data?.vendorName ||
+        response?.data?.user?.vendorName ||
+        response?.data?.user?.name ||
+        response?.data?.user?.companyName ||
+        '';
+
+      if (vendorName) {
+        window.localStorage.setItem('vendorName', String(vendorName));
+      }
+
+      navigate('/vendor-dashboard', { state: { vendorName } });
     } catch (error) {
       console.error('Login error:', error);
     }
