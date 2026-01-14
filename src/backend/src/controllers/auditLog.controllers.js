@@ -37,6 +37,23 @@ async function getProductAuditLogs(req, res) {
     }
 }
 
+// Public: privacy-safe view of audit logs for a product (no auth)
+// Returns only the minimum useful fields (no IP/user-agent).
+async function getPublicProductAuditLogs(req, res) {
+    const { productId } = req.params;
+    const limit = Math.min(Number(req.query.limit) || 8, 20);
+    try {
+        const auditLogs = await AuditLog.find({ productId })
+            .select('scanResult location scannedAt')
+            .sort({ scannedAt: -1 })
+            .limit(limit);
+        res.status(200).json(auditLogs);
+    } catch (error) {
+        console.error("Error fetching public product audit logs:", error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+}
+
 async function getAuditLogsByQR(req, res) {
     const { qrCode } = req.params;
     try {
@@ -58,7 +75,8 @@ const auditController = {
     getAllAuditLogs,
     getVendorAuditLogs,
     getAuditLogsByQR,
-    getProductAuditLogs
+    getProductAuditLogs,
+    getPublicProductAuditLogs
 };
 export default auditController;
         

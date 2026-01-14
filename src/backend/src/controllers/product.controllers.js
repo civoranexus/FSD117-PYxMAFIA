@@ -42,7 +42,7 @@ async function createProduct(req, res) {
 async function getProducts(req, res) {
     const vendorId = req.user._id;
     try {
-        const products = await productModel.find({ vendorId }); //fetch products for the logged in vendor
+        const products = await productModel.find({ vendorId }); // fetch products for the logged in vendor
         res.status(200).json(products);
     } catch (error) {
         console.error("Error fetching products:", error);
@@ -54,45 +54,14 @@ async function getProductByQRCode(req, res) {
     const { id: qrCode } = req.params;
 
     try {
-        let scanResult = "Invalid";
-
         const product = await productModel.findOne({ qrCode });
 
+        // If the QR does not exist => Invalid
         if (!product) {
-            await AuditLog.create({ qrCode, scanResult });
-            return res.status(404).json({ status: scanResult });
+            return res.status(404).json({ status: "Invalid" });
         }
 
-        if (product.qrStatus === "blocked") {
-            scanResult = "Blocked";
-        }
-        else if (product.qrStatus === "used") {
-            scanResult = "AlreadyUsed";
-        }
-        else {
-            scanResult = "Valid";
-            product.qrStatus = "used";
-            product.verificationCount += 1;
-            product.lastVerifiedAt = new Date();
-        }
-
-        // 🚨 FRAUD DETECTION — MUST be before save
-        const recentScans = await AuditLog.find({
-            qrCode,
-            scannedAt: { $gte: new Date(Date.now() - 2 * 60 * 1000) }
-        });
-
-        const uniqueIPs = new Set(recentScans.map(log => log.ipAddress));
-
-        if (recentScans.length >= 3 || uniqueIPs.size >= 2) {
-            product.isSuspicious = true;
-            product.qrStatus = "blocked";
-            scanResult = "Blocked";
-        }
-
-        await product.save();
-
-        // 🌍 Location tracking
+        // Current request context (needed for fraud checks)
         let ip =
             req.headers["x-forwarded-for"]?.split(",")[0] ||
             req.socket.remoteAddress;
@@ -100,12 +69,71 @@ async function getProductByQRCode(req, res) {
         if (ip === "::1" || ip === "127.0.0.1") ip = "8.8.8.8";
 
         const geo = geoip.lookup(ip);
-
         const location = geo
             ? `${geo.city || "Unknown"}, ${geo.country || "Unknown"}`
             : "Unknown";
 
-        // 🧾 Audit log
+        // Determine status
+        let scanResult = "Invalid";
+
+        if (product.qrStatus === "blocked") {
+            scanResult = "Blocked";
+        } else if (product.qrStatus === "active") {
+            scanResult = "Valid";
+        } else if (product.qrStatus === "used") {
+            scanResult = "AlreadyUsed";
+        } else {
+            // generated or unknown => not yet activated
+            scanResult = "Invalid";
+        }
+
+        // Continuous monitoring:
+        // if the QR is repeatedly scanned in short window or from different IP/locations,
+        // or continues being scanned too much after already used, consider it compromised.
+        const WINDOW_MS = 2 * 60 * 1000;
+        const recentScans = await AuditLog.find({
+            qrCode,
+            scannedAt: { $gte: new Date(Date.now() - WINDOW_MS) }
+        }).select('ipAddress location scanResult scannedAt');
+
+        const scanCountWithThis = recentScans.length + 1;
+        const uniqueIPs = new Set(recentScans.map(log => log.ipAddress).filter(Boolean));
+        uniqueIPs.add(ip);
+
+        const uniqueLocations = new Set(recentScans.map(log => log.location).filter(Boolean));
+        uniqueLocations.add(location);
+
+        const MAX_SCANS_IN_WINDOW = 5;
+        const MAX_SCANS_AFTER_USED = 3;
+        const MULTI_IP_THRESHOLD = 2;
+        const MULTI_LOCATION_THRESHOLD = 2;
+
+        const isRapidRepeat = scanCountWithThis >= MAX_SCANS_IN_WINDOW;
+        const isMultiIp = uniqueIPs.size >= MULTI_IP_THRESHOLD;
+        const isMultiLocation = uniqueLocations.size >= MULTI_LOCATION_THRESHOLD;
+        const isRepeatedAfterUsed = product.qrStatus === "used" && scanCountWithThis >= MAX_SCANS_AFTER_USED;
+
+        const compromised = (scanResult !== "Blocked") && (isRapidRepeat || isMultiIp || isMultiLocation || isRepeatedAfterUsed);
+
+        if (compromised) {
+            product.isSuspicious = true;
+            product.qrStatus = "blocked";
+            scanResult = "Blocked";
+        } else {
+            // If it exists and is active => allow the scan, mark it used, and show the product.
+            if (product.qrStatus === "active") {
+                product.qrStatus = "used";
+            }
+
+            // Allow normal repeated scans but show status as AlreadyUsed
+            if (scanResult === "Valid" || scanResult === "AlreadyUsed") {
+                product.verificationCount += 1;
+                product.lastVerifiedAt = new Date();
+            }
+        }
+
+        await product.save();
+
         await AuditLog.create({
             productId: product._id,
             qrCode,
@@ -118,7 +146,7 @@ async function getProductByQRCode(req, res) {
 
         return res.status(200).json({
             status: scanResult,
-            suspicious: product.isSuspicious,
+            suspicious: Boolean(product.isSuspicious),
             product
         });
 
@@ -130,7 +158,7 @@ async function getProductByQRCode(req, res) {
 
 
 async function deleteProduct(req, res) {
-    const { productId } = req.params;
+    const { id: productId } = req.params;
     const vendorId = req.user._id;
     try {
         const product = await productModel.findById(productId);
@@ -143,7 +171,7 @@ async function deleteProduct(req, res) {
         if (vendorId.role.toString() == 'vendor') {
             return res.status(403).json({ message: "Unauthorized" });
         }
-        await productModel.findByIdAndDelete(id);
+        await productModel.findByIdAndDelete(productId);
         res.status(200).json({ message: 'Product deleted successfully' });
     } catch (error) {
         console.error("Error deleting product:", error);

@@ -7,23 +7,30 @@ import apiClient from '../api/axios.js'
 const PRODUCT_BASE = '/products'
 
 const STATUS = {
+  GENERATED: 'generated',
   ACTIVE: 'active',
-  SUSPICIOUS: 'suspicious',
+  USED: 'used',
   BLOCKED: 'blocked',
 }
 
 const statusMeta = {
+  [STATUS.GENERATED]: {
+    label: 'Generated',
+    badge: 'bg-amber-100 text-amber-900 ring-1 ring-amber-200',
+    card: 'bg-amber-50 ring-1 ring-amber-200',
+    dot: 'bg-amber-500',
+  },
   [STATUS.ACTIVE]: {
     label: 'Active',
     badge: 'bg-emerald-100 text-emerald-800 ring-1 ring-emerald-200',
     card: 'bg-emerald-50 ring-1 ring-emerald-200',
     dot: 'bg-emerald-500',
   },
-  [STATUS.SUSPICIOUS]: {
-    label: 'Suspicious',
-    badge: 'bg-red-100 text-red-800 ring-1 ring-red-200',
-    card: 'bg-red-50 ring-1 ring-red-200',
-    dot: 'bg-red-500',
+  [STATUS.USED]: {
+    label: 'Used',
+    badge: 'bg-sky-100 text-sky-800 ring-1 ring-sky-200',
+    card: 'bg-sky-50 ring-1 ring-sky-200',
+    dot: 'bg-sky-500',
   },
   [STATUS.BLOCKED]: {
     label: 'Blocked',
@@ -106,7 +113,7 @@ const VendorPage = () => {
   const normalizedProducts = useMemo(() => {
     const items = Array.isArray(products) ? products : []
     return items.map((p) => {
-      const status = p?.qrStatus || p?.status || (p?.isSuspicious ? STATUS.SUSPICIOUS : STATUS.ACTIVE)
+      const status = (p?.isSuspicious ? STATUS.BLOCKED : (p?.qrStatus || p?.status)) || STATUS.GENERATED
       return {
         ...p,
         id: p?.id ?? p?._id ?? makeId(),
@@ -127,8 +134,11 @@ const VendorPage = () => {
   }, [normalizedProducts, vendorName])
 
   const counts = useMemo(() => {
-    const base = { all: vendorProducts.length, active: 0, suspicious: 0, blocked: 0 }
-    for (const p of vendorProducts) base[p.qrStatus] += 1
+    const base = { all: vendorProducts.length, generated: 0, active: 0, used: 0, blocked: 0 }
+    for (const p of vendorProducts) {
+      if (base[p.qrStatus] !== undefined) base[p.qrStatus] += 1
+      else base.generated += 1
+    }
     return base
   }, [vendorProducts])
 
@@ -139,8 +149,9 @@ const VendorPage = () => {
 
   const tabs = [
     { key: 'all', label: 'All', count: counts.all },
+    { key: STATUS.GENERATED, label: 'Generated', count: counts.generated },
     { key: STATUS.ACTIVE, label: 'Active', count: counts.active },
-    { key: STATUS.SUSPICIOUS, label: 'Suspicious', count: counts.suspicious },
+    { key: STATUS.USED, label: 'Used', count: counts.used },
     { key: STATUS.BLOCKED, label: 'Blocked', count: counts.blocked },
   ]
 

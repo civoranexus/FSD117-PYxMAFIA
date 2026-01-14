@@ -15,4 +15,7 @@ router.get("/vendor", authMiddleware, isVendor, auditController.getVendorAuditLo
 // Admin & Vendor: logs of a specific product
 router.get("/product/:productId", authMiddleware, auditController.getProductAuditLogs);
 
+// Public: limited audit logs for product details page
+router.get("/public/product/:productId", auditController.getPublicProductAuditLogs);
+
 export default router;

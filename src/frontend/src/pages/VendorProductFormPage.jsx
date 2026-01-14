@@ -5,8 +5,9 @@ import apiClient from '../api/axios.js'
 import toast from 'react-hot-toast'
 
 const STATUS = {
+  GENERATED: 'generated',
   ACTIVE: 'active',
-  SUSPICIOUS: 'suspicious',
+  USED: 'used',
   BLOCKED: 'blocked',
 }
 
@@ -42,11 +43,14 @@ const VendorProductFormPage = () => {
   const navigate = useNavigate()
   const location = useLocation()
 
+  const [vendorNameFromApi, setVendorNameFromApi] = useState('')
+
   const vendorNameFixed = useMemo(() => {
     const fromState = normalizeVendorName(location?.state?.vendorName)
     const fromStorage = normalizeVendorName(window.localStorage.getItem('vendorName'))
-    return fromState || fromStorage || ''
-  }, [location?.state?.vendorName])
+    const fromApi = normalizeVendorName(vendorNameFromApi)
+    return fromState || fromStorage || fromApi || ''
+  }, [location?.state?.vendorName, vendorNameFromApi])
 
   const initial = useMemo(() => {
     const p = location?.state?.product
@@ -60,7 +64,8 @@ const VendorProductFormPage = () => {
       manufactureDate: toDateInputValue(p?.manufactureDate ?? p?.manufacturedAt ?? p?.mfgDate),
       expiryDate: toDateInputValue(p?.expiryDate ?? p?.expiresAt ?? p?.expDate),
       vendorName: p?.vendorName ?? vendorNameFixed ?? '',
-      qrStatus: p?.qrStatus ?? p?.status ?? STATUS.ACTIVE,
+      // Backend enum: generated|active|used|blocked
+      qrStatus: p?.qrStatus ?? p?.status ?? (p?.isSuspicious ? STATUS.BLOCKED : STATUS.GENERATED),
       verificationCount: p?.verificationCount ?? 0,
       isSuspicious: p?.isSuspicious ?? false,
     }
@@ -76,7 +81,6 @@ const VendorProductFormPage = () => {
   const setField = (key, value) => setForm((prev) => ({ ...prev, [key]: value }))
 
   const validate = () => {
-    const effectiveVendorName = String(vendorNameFixed || form.vendorName || '').trim()
     if (!String(form.productName).trim()) return 'Product name is required.'
     if (!String(form.description).trim()) return 'Description is required.'
     if (form.price === '' || Number(form.price) <= 0) return 'Price must be greater than 0.'
@@ -85,10 +89,27 @@ const VendorProductFormPage = () => {
     if (!String(form.batchId).trim()) return 'Batch ID is required.'
     if (!String(form.manufactureDate).trim()) return 'Manufacture date is required.'
     if (!String(form.expiryDate).trim()) return 'Expiry date is required.'
-    if (!effectiveVendorName) return 'Vendor name is missing. Please login/register again.'
-    if (![STATUS.ACTIVE, STATUS.SUSPICIOUS, STATUS.BLOCKED].includes(form.qrStatus)) return 'Invalid QR status.'
     return ''
   }
+
+  useEffect(() => {
+    // If vendorName isn't available via navigation state/localStorage, fetch it from backend.
+    // This is only for display; backend derives vendorName/vendorId from the auth cookie.
+    if (vendorNameFixed) return
+    apiClient
+      .get(`${PRODUCT_BASE}/vendor/name`)
+      .then((res) => {
+        const name = normalizeVendorName(res?.data?.vendorName)
+        if (!name) return
+        setVendorNameFromApi(name)
+        window.localStorage.setItem('vendorName', name)
+        setForm((prev) => ({ ...prev, vendorName: name }))
+      })
+      .catch((e) => {
+        // Non-fatal; user may not be logged in and create will fail anyway.
+        console.warn('[vendor/name fetch failed]', e?.response?.data || e?.message || e)
+      })
+  }, [vendorNameFixed])
 
   useEffect(() => {
     // When creating, prefill Batch ID + lock vendorName/qrStatus defaults.
@@ -96,7 +117,8 @@ const VendorProductFormPage = () => {
       setForm((prev) => ({
         ...prev,
         vendorName: vendorNameFixed || prev.vendorName,
-        qrStatus: STATUS.ACTIVE,
+        // Backend will persist qrStatus as "generated" on create.
+        qrStatus: STATUS.GENERATED,
         batchId: prev.batchId || generateBatchId(),
       }))
     }
@@ -128,10 +150,6 @@ const VendorProductFormPage = () => {
       batchId: String(form.batchId).trim(),
       manufactureDate: form.manufactureDate,
       expiryDate: form.expiryDate,
-      vendorName: String(vendorNameFixed || form.vendorName).trim(),
-      qrStatus: STATUS.ACTIVE,
-      verificationCount: Number(form.verificationCount) || 0,
-      isSuspicious: Boolean(form.isSuspicious),
     }
 
     setSaving(true)
@@ -150,6 +168,14 @@ const VendorProductFormPage = () => {
 
       navigate('/vendor-dashboard', { state: { refresh: true } })
     } catch (e2) {
+      console.error('[Product save failed]', {
+        mode,
+        endpoint: mode === 'edit' ? `${PRODUCT_BASE}/update/${editingProduct?.id ?? editingProduct?._id}` : `${PRODUCT_BASE}/create`,
+        payload,
+        status: e2?.response?.status,
+        data: e2?.response?.data,
+        message: e2?.message,
+      })
       const message = e2?.response?.data?.message || e2?.message || 'Failed to save product.'
       setError(message)
       toast.error(message)
@@ -287,12 +313,13 @@ const VendorProductFormPage = () => {
               <div>
                 <label className="block text-xs font-semibold text-slate-700">QR status</label>
                 <select
-                  value={STATUS.ACTIVE}
+                  value={form.qrStatus || STATUS.GENERATED}
                   disabled
                   className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 outline-none"
                 >
+                  <option value={STATUS.GENERATED}>Generated</option>
                   <option value={STATUS.ACTIVE}>Active</option>
-                  <option value={STATUS.SUSPICIOUS}>Suspicious</option>
+                  <option value={STATUS.USED}>Used</option>
                   <option value={STATUS.BLOCKED}>Blocked</option>
                 </select>
                 <p className="mt-2 text-xs text-slate-500">QR status is controlled by the system.</p>

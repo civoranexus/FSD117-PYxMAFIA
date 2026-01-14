@@ -1,8 +1,9 @@
-import React, {useState} from 'react'
+import React, { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom';
 import NavigationBar from '../components/NavigationBar.jsx'
 import QRScanner from '../components/QRScanner.jsx';
 import apiClient from '../api/axios.js';
+import { Html5Qrcode } from 'html5-qrcode';
 
 const HomePage = () => {
 
@@ -10,16 +11,16 @@ const HomePage = () => {
     const [isVerifying, setIsVerifying] = useState(false);
     const [scanError, setScanError] = useState('');
     const navigate = useNavigate();
+    const fileInputRef = useRef(null);
 
-    const handleScan = (result) => {
+    const verifyQr = (qrText) => {
         setShowScanner(false);
-        console.log("Scanned QR:", result);
+        console.log("Scanned QR:", qrText);
 
         setScanError('');
         setIsVerifying(true);
 
-        // here you will call backend: /api/verify/:qrCode
-        apiClient.get(`/products/${encodeURIComponent(result)}`)
+        return apiClient.get(`/products/${encodeURIComponent(qrText)}`)
             .then(response => {
                 console.log("Verification result:", response.data);
                 const data = response.data;
@@ -36,10 +37,9 @@ const HomePage = () => {
                     return;
                 }
 
-                // Redirect to Product page with the data
-                navigate('/product', {
+                navigate(`/product?qr=${encodeURIComponent(qrText)}`, {
                     state: {
-                        qr: result,
+                        qr: qrText,
                         productResult: data,
                     },
                 });
@@ -57,8 +57,33 @@ const HomePage = () => {
             .finally(() => {
                 setIsVerifying(false);
             });
+    }
 
+    const handleScan = (result) => {
+        verifyQr(result);
     };
+
+    const onPickImage = async (e) => {
+        const file = e.target.files?.[0];
+        e.target.value = '';
+        if (!file) return;
+
+        setScanError('');
+        setShowScanner(false);
+        setIsVerifying(true);
+
+        try {
+            // Decode QR from image locally in browser
+            const html5QrCode = new Html5Qrcode('qr-file-reader');
+            const decodedText = await html5QrCode.scanFile(file, true);
+            await html5QrCode.clear();
+            await verifyQr(decodedText);
+        } catch (err) {
+            console.error('QR image decode failed:', err);
+            setScanError('Could not read a QR code from that image. Please try a clearer photo.');
+            setIsVerifying(false);
+        }
+    }
 
     return (
         <div className="min-h-screen bg-slate-50 flex flex-col">
@@ -84,7 +109,7 @@ const HomePage = () => {
 
                             {/* Camera Preview Box */}
                             <div
-                                className="w-full h-48 bg-slate-100 rounded-xl flex items-center justify-center overflow-hidden ring-1 ring-slate-200"
+                                className="w-full h-56 bg-slate-100 rounded-xl flex items-center justify-center overflow-hidden ring-1 ring-slate-200"
                             >
                                 {showScanner ? (
                                     <QRScanner onScan={handleScan} />
@@ -93,14 +118,32 @@ const HomePage = () => {
                                 )}
                             </div>
 
-                            {/* Scan Button */}
-                            <button
-                                onClick={() => setShowScanner(true)}
-                                disabled={isVerifying}
-                                className="mt-4 w-full bg-black text-white py-3 rounded-xl font-semibold hover:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-black/20 disabled:opacity-60 disabled:cursor-not-allowed"
-                            >
-                                {isVerifying ? 'Verifying…' : 'Scan QR Code'}
-                            </button>
+                            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <button
+                                    onClick={() => setShowScanner(true)}
+                                    disabled={isVerifying}
+                                    className="w-full bg-black text-white py-3 rounded-xl font-semibold hover:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-black/20 disabled:opacity-60 disabled:cursor-not-allowed"
+                                >
+                                    {isVerifying ? 'Verifying…' : 'Use Camera'}
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={() => fileInputRef.current?.click()}
+                                    disabled={isVerifying}
+                                    className="w-full bg-white text-slate-900 py-3 rounded-xl font-semibold ring-1 ring-slate-200 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-black/10 disabled:opacity-60 disabled:cursor-not-allowed"
+                                >
+                                    Upload QR Image
+                                </button>
+                            </div>
+
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={onPickImage}
+                            />
 
                             {scanError ? (
                                 <p className="mt-3 text-sm text-red-600 text-center">{scanError}</p>
@@ -110,6 +153,9 @@ const HomePage = () => {
                         </div>
                     </div>
                 </section>
+
+                {/* Hidden mount point used by html5-qrcode scanFile() */}
+                <div id="qr-file-reader" className="hidden" />
 
 
                 {/* Scan Section */}
