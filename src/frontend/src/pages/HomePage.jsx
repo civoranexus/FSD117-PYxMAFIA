@@ -50,7 +50,6 @@ const HomePage = () => {
             })
             .catch(error => {
                 console.error("Verification error:", error);
-
                 const message = getApiErrorMessage(error, 'Unable to verify QR code. Please try again.')
                 setScanError(message);
                 toast.error(message)
