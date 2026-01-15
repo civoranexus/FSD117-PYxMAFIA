@@ -4,6 +4,8 @@ import NavigationBar from '../components/NavigationBar.jsx'
 import QRScanner from '../components/QRScanner.jsx';
 import apiClient from '../api/axios.js';
 import { Html5Qrcode } from 'html5-qrcode';
+import toast from 'react-hot-toast'
+import { getApiErrorMessage } from '../utils/apiError.js'
 
 const HomePage = () => {
 
@@ -33,7 +35,9 @@ const HomePage = () => {
                     data?.success === false;
 
                 if (invalidByFlag) {
-                    setScanError(data?.message || 'Product verification failed.');
+                    const msg = data?.message || 'Product verification failed.'
+                    setScanError(msg);
+                    toast.error(msg);
                     return;
                 }
 
@@ -47,11 +51,9 @@ const HomePage = () => {
             .catch(error => {
                 console.error("Verification error:", error);
 
-                const message =
-                    error?.response?.data?.message ||
-                    error?.message ||
-                    'Unable to verify QR code. Please try again.';
+                const message = getApiErrorMessage(error, 'Unable to verify QR code. Please try again.')
                 setScanError(message);
+                toast.error(message)
                 setShowScanner(false);
             })
             .finally(() => {
@@ -80,7 +82,9 @@ const HomePage = () => {
             await verifyQr(decodedText);
         } catch (err) {
             console.error('QR image decode failed:', err);
-            setScanError('Could not read a QR code from that image. Please try a clearer photo.');
+            const message = 'Could not read a QR code from that image. Please try a clearer photo.'
+            setScanError(message);
+            toast.error(message)
             setIsVerifying(false);
         }
     }

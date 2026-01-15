@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import NavigationBar from '../components/NavigationBar.jsx'
 import apiClient from '../api/axios.js'
+import toast from 'react-hot-toast'
+import { getApiErrorMessage } from '../utils/apiError.js'
 
 const isPlainObject = (value) => {
   return (
@@ -9,16 +11,6 @@ const isPlainObject = (value) => {
     typeof value === 'object' &&
     !Array.isArray(value)
   )
-}
-
-const formatLabel = (key) => {
-  if (!key) return ''
-  return String(key)
-    .replace(/([a-z])([A-Z])/g, '$1 $2')
-    .replace(/[_-]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .replace(/^./, (c) => c.toUpperCase())
 }
 
 const pickFirst = (obj, keys) => {
@@ -144,23 +136,33 @@ const ProductPage = () => {
     if (location?.state?.productResult) return
     if (fetchedResult) return
 
-    setFetchError('')
-    setFetchingResult(true)
-    apiClient
-      .get(`/products/${encodeURIComponent(qr)}`)
-      .then((res) => {
-        setFetchedResult(res?.data)
-      })
-      .catch((err) => {
-        const message =
-          err?.response?.data?.message ||
-          err?.message ||
-          'Unable to load product details. Please rescan the QR.'
-        setFetchError(message)
-      })
-      .finally(() => {
-        setFetchingResult(false)
-      })
+    let cancelled = false
+    const t = setTimeout(() => {
+      if (cancelled) return
+      setFetchError('')
+      setFetchingResult(true)
+      apiClient
+        .get(`/products/${encodeURIComponent(qr)}`)
+        .then((res) => {
+          if (cancelled) return
+          setFetchedResult(res?.data)
+        })
+        .catch((err) => {
+          if (cancelled) return
+          const message = getApiErrorMessage(err, 'Unable to load product details. Please rescan the QR.')
+          setFetchError(message)
+          toast.error(message)
+        })
+        .finally(() => {
+          if (cancelled) return
+          setFetchingResult(false)
+        })
+    }, 0)
+
+    return () => {
+      cancelled = true
+      clearTimeout(t)
+    }
   }, [qr, location?.state?.productResult, fetchedResult])
 
   const product = useMemo(() => {
@@ -226,19 +228,33 @@ const ProductPage = () => {
 
   useEffect(() => {
     if (!productId) return
-    setAuditLoading(true)
-    apiClient
-      .get(`/audit/public/product/${encodeURIComponent(productId)}?limit=6`)
-      .then((res) => {
-        const list = Array.isArray(res.data) ? res.data : []
-        setAuditLogs(list)
-      })
-      .catch(() => {
-        setAuditLogs([])
-      })
-      .finally(() => {
-        setAuditLoading(false)
-      })
+    let cancelled = false
+    const t = setTimeout(() => {
+      if (cancelled) return
+      setAuditLoading(true)
+      apiClient
+        .get(`/audit/public/product/${encodeURIComponent(productId)}?limit=6`)
+        .then((res) => {
+          if (cancelled) return
+          const list = Array.isArray(res.data) ? res.data : []
+          setAuditLogs(list)
+        })
+        .catch((err) => {
+          if (cancelled) return
+          setAuditLogs([])
+          const message = getApiErrorMessage(err, 'Unable to load verification history.')
+          toast.error(message)
+        })
+        .finally(() => {
+          if (cancelled) return
+          setAuditLoading(false)
+        })
+    }, 0)
+
+    return () => {
+      cancelled = true
+      clearTimeout(t)
+    }
   }, [productId])
 
   const mainFields = useMemo(() => {

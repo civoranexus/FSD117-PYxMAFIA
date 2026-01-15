@@ -1,18 +1,24 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import NavigationBar from '../components/NavigationBar.jsx'
 import apiClient from '../api/axios.js'
+import toast from 'react-hot-toast'
+import { getApiErrorMessage } from '../utils/apiError.js'
 
 const RegisterPage = () => {
   const navigate = useNavigate();
+  const [submitting, setSubmitting] = useState(false)
+  const [formError, setFormError] = useState('')
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setFormError('')
 
     const formData = new FormData(e.target);
     const data = Object.fromEntries(formData.entries());
 
     // Here you would typically send 'data' to your backend API
     try {
+      setSubmitting(true)
       const response = await apiClient.post('/auth/register', data);
       console.log('Registration successful:', response.data);
       const vendorName =
@@ -27,9 +33,19 @@ const RegisterPage = () => {
         window.localStorage.setItem('vendorName', String(vendorName));
       }
 
+      toast.success('Registration successful')
       navigate('/vendor-dashboard', { state: { vendorName } });
     } catch (error) {
       console.error('Registration error:', error);
+      const message = getApiErrorMessage(error, 'Registration failed')
+      setFormError(message)
+      toast.error(message)
+
+      // Clear password on failure without wiping email/name.
+      const passwordInput = e.target?.querySelector?.('input[name="password"]')
+      if (passwordInput) passwordInput.value = ''
+    } finally {
+      setSubmitting(false)
     }
   };
 // Example: Simulate successful registration
@@ -134,10 +150,17 @@ return (
 
             <button
               type="submit"
-              className="w-full rounded-xl bg-black text-white py-3 text-sm font-semibold hover:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-black/20 cursor-pointer"
+              disabled={submitting}
+              className="w-full rounded-xl bg-black text-white py-3 text-sm font-semibold hover:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-black/20 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              Register
+              {submitting ? 'Creating account…' : 'Register'}
             </button>
+
+            {formError ? (
+              <div className="rounded-xl bg-red-50 ring-1 ring-red-200 p-3 text-sm text-red-700">
+                {formError}
+              </div>
+            ) : null}
 
             <p className="text-sm text-slate-600 text-center">
               Already have an account?{' '}

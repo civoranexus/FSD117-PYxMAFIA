@@ -1,18 +1,24 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import NavigationBar from '../components/NavigationBar.jsx'
 import apiClient from '../api/axios.js'
+import toast from 'react-hot-toast'
+import { getApiErrorMessage } from '../utils/apiError.js'
 
 const LoginPage = () => {
 
   const navigate = useNavigate();
+  const [submitting, setSubmitting] = useState(false)
+  const [formError, setFormError] = useState('')
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    setFormError('')
     // Handle login logic here
     const formData = new FormData(e.target)
     const data = Object.fromEntries(formData.entries())
     try {
+      setSubmitting(true)
       const response = await apiClient.post('/auth/login', data);
       console.log('Login successful:', response.data);
       const vendorName =
@@ -26,9 +32,19 @@ const LoginPage = () => {
         window.localStorage.setItem('vendorName', String(vendorName));
       }
 
+      toast.success('Login successful')
       navigate('/vendor-dashboard', { state: { vendorName } });
     } catch (error) {
       console.error('Login error:', error);
+      const message = getApiErrorMessage(error, 'Invalid credentials')
+      setFormError(message)
+      toast.error(message)
+
+      // Clear password on failure without wiping email.
+      const passwordInput = e.target?.querySelector?.('input[name="password"]')
+      if (passwordInput) passwordInput.value = ''
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -75,10 +91,17 @@ const LoginPage = () => {
 
               <button
                 type="submit"
-                className="w-full rounded-xl bg-black text-white py-3 text-sm font-semibold hover:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-black/20"
+                disabled={submitting}
+                className="w-full rounded-xl bg-black text-white py-3 text-sm font-semibold hover:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-black/20 disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                Login
+                {submitting ? 'Logging in…' : 'Login'}
               </button>
+
+              {formError ? (
+                <div className="rounded-xl bg-red-50 ring-1 ring-red-200 p-3 text-sm text-red-700">
+                  {formError}
+                </div>
+              ) : null}
 
               <div className="flex items-center justify-between text-sm">
                 <a href="#" className="text-slate-600 hover:text-slate-900 underline underline-offset-4">
