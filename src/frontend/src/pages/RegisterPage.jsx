@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import NavigationBar from '../components/NavigationBar.jsx'
 import apiClient from '../api/axios.js'
 import toast from 'react-hot-toast'
-import { getApiErrorMessage } from '../utils/apiError.js'
+import { getApiErrorMessage } from '../api/axios.js'
 
 const RegisterPage = () => {
   const navigate = useNavigate();

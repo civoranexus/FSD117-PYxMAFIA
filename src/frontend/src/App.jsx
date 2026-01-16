@@ -1,11 +1,13 @@
 import './App.css'
 import AppRouter from './routes/AppRouter'
 import { Toaster } from 'react-hot-toast'
+import GlobalLoader from './components/GlobalLoader'
 
 function App() {
   
   return (
     <>
+      <GlobalLoader />
       <AppRouter />
       <Toaster
         position="top-right"

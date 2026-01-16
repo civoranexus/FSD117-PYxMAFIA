@@ -3,9 +3,10 @@ import { Link, useNavigate } from 'react-router-dom'
 import NavigationBar from '../components/NavigationBar.jsx'
 import apiClient from '../api/axios.js'
 import toast from 'react-hot-toast'
-import { getApiErrorMessage } from '../utils/apiError.js'
+import { getApiErrorMessage } from '../api/axios.js'
 
 const LoginPage = () => {
+  
 
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false)
@@ -13,6 +14,7 @@ const LoginPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    if (submitting) return;
     setFormError('')
     // Handle login logic here
     const formData = new FormData(e.target)
