@@ -21,6 +21,7 @@ router.get('/vendors', adminController.getAllVendors);
 
 // Product management (admin view)
 router.get('/products', adminController.getAllProducts);
+router.patch('/products/:id/review', adminController.reviewProduct);
 
 // Audit logs
 router.get('/audit-logs', adminController.getAuditLogs);

@@ -7,6 +7,7 @@ import AboutPage from '../pages/AboutPage.jsx'
 import VendorPage from '../pages/VendorPage.jsx'
 import ProductPage from '../pages/ProductPage.jsx'
 import VendorProductFormPage from '../pages/VendorProductFormPage.jsx'
+import AdminDashboardPage from '../pages/AdminDashboardPage.jsx'
 
 const AppRouter = () => {
   return (
@@ -19,6 +20,7 @@ const AppRouter = () => {
         <Route path="/login/:role" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/vendor-dashboard" element={<VendorPage />} />
+        <Route path="/admin-dashboard" element={<AdminDashboardPage />} />
         <Route path="/vendor/products/new" element={<VendorProductFormPage />} />
         <Route path="/vendor/products/edit" element={<VendorProductFormPage />} />
       </Routes>

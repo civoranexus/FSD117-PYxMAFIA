@@ -32,7 +32,15 @@ async function registerUser(req, res) {
         const token = jwt.sign({ userId: newUser._id }, process.env.jwt_secret, { expiresIn: '1h' });
         res.cookie('token', token, { httpOnly: true, secure: process.env.NODE_ENV === 'production' });
 
-        res.status(201).json({ message: 'User registered successfully', userId: newUser._id });
+        res.status(201).json({
+            message: 'User registered successfully',
+            user: {
+                id: newUser._id,
+                name: newUser.name,
+                email: newUser.email,
+                role: newUser.role
+            }
+        });
     } catch (error) {
         console.error("Error registering user:", error);
         res.status(500).json({ message: 'Internal server error' });
@@ -55,7 +63,15 @@ async function loginUser(req, res) {
         const token = jwt.sign({ userId: user._id }, process.env.jwt_secret, { expiresIn: '1h' });
         res.cookie('token', token, { httpOnly: true, secure: process.env.NODE_ENV === 'production' });
 
-        res.status(200).json({ message: 'Login successful', userId: user._id });
+        res.status(200).json({
+            message: 'Login successful',
+            user: {
+                id: user._id,
+                name: user.name,
+                email: user.email,
+                role: user.role
+            }
+        });
     } catch (error) {
         console.error("Error logging in user:", error);
         res.status(500).json({ message: 'Internal server error' });

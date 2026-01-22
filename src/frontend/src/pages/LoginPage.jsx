@@ -23,19 +23,20 @@ const LoginPage = () => {
       setSubmitting(true)
       const response = await apiClient.post('/auth/login', data);
       console.log('Login successful:', response.data);
-      const vendorName =
-        response?.data?.vendorName ||
-        response?.data?.user?.vendorName ||
-        response?.data?.user?.name ||
-        response?.data?.user?.companyName ||
-        '';
+      const user = response?.data?.user
+      const role = user?.role || ''
+      const name = user?.name || ''
 
-      if (vendorName) {
-        window.localStorage.setItem('vendorName', String(vendorName));
-      }
+      if (name) window.localStorage.setItem('vendorName', String(name))
+      if (role) window.localStorage.setItem('role', String(role))
 
       toast.success('Login successful')
-      navigate('/vendor-dashboard', { state: { vendorName } });
+
+      if (role === 'admin') {
+        navigate('/admin-dashboard')
+      } else {
+        navigate('/vendor-dashboard', { state: { vendorName: name } });
+      }
     } catch (error) {
       console.error('Login error:', error);
       const message = getApiErrorMessage(error, 'Invalid credentials')
