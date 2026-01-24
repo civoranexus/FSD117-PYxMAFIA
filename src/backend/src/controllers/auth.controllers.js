@@ -9,6 +9,10 @@ async function registerUser(req, res) {
 
 
     try {
+        if (!name || !email || !phone_no || !password) {
+            return res.status(400).json({ message: 'Missing required fields' });
+        }
+
         // Check if user with the same email or phone number already exists
         const existingUser = await User.findOne({ $or: [{ email }, { phone_no }] });
         if (existingUser) {
@@ -17,7 +21,7 @@ async function registerUser(req, res) {
         // if(phone_no.length == 10){
         //     return res.status(400).json({ message: 'Phone number is not valid' });
         // }
-        if(password.length < 6){
+        if (typeof password !== 'string' || password.length < 6) {
             return res.status(400).json({ message: 'Password must be at least 6 characters long' });
         }
 
@@ -30,7 +34,13 @@ async function registerUser(req, res) {
 
         // Generate JWT token
         const token = jwt.sign({ userId: newUser._id }, process.env.jwt_secret, { expiresIn: '1h' });
-        res.cookie('token', token, { httpOnly: true, secure: process.env.NODE_ENV === 'production' });
+        const isProd = process.env.NODE_ENV === 'production';
+        res.cookie('token', token, {
+            httpOnly: true,
+            secure: isProd,
+            sameSite: isProd ? 'none' : 'lax',
+            path: '/',
+        });
 
         res.status(201).json({
             message: 'User registered successfully',
@@ -50,18 +60,28 @@ async function registerUser(req, res) {
 async function loginUser(req, res) {
     const { email, password } = req.body;
     try {
+        if (!email || !password) {
+            return res.status(400).json({ message: 'Email and password are required' });
+        }
+
         const user = await User.findOne({ email });
         if (!user) {
             return res.status(400).json({ message: 'Invalid email or password' });
         }
         //compare password
-        const isPasswordValid = bcrypt.compareSync(password, user.password);
+        const isPasswordValid = bcrypt.compareSync(String(password), user.password);
         if (!isPasswordValid) {
             return res.status(400).json({ message: 'Invalid email or password' });
         }
         // Generate JWT token
         const token = jwt.sign({ userId: user._id }, process.env.jwt_secret, { expiresIn: '1h' });
-        res.cookie('token', token, { httpOnly: true, secure: process.env.NODE_ENV === 'production' });
+        const isProd = process.env.NODE_ENV === 'production';
+        res.cookie('token', token, {
+            httpOnly: true,
+            secure: isProd,
+            sameSite: isProd ? 'none' : 'lax',
+            path: '/',
+        });
 
         res.status(200).json({
             message: 'Login successful',

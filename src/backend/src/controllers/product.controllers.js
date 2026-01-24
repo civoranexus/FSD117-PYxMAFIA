@@ -159,18 +159,19 @@ async function getProductByQRCode(req, res) {
 
 async function deleteProduct(req, res) {
     const { id: productId } = req.params;
-    const vendorId = req.user._id;
+    const requesterId = req.user._id;
     try {
         const product = await productModel.findById(productId);
         if (!product) {
             return res.status(404).json({ message: 'Product not found' });
         }
-        if (product.vendorId.toString() !== vendorId.toString()) {
+
+        const isOwner = product.vendorId.toString() === requesterId.toString();
+        const isAdmin = req.user.role === 'admin';
+        if (!isOwner && !isAdmin) {
             return res.status(403).json({ message: 'Unauthorized to delete this product' });
         }
-        if (vendorId.role.toString() == 'vendor') {
-            return res.status(403).json({ message: "Unauthorized" });
-        }
+
         await productModel.findByIdAndDelete(productId);
         res.status(200).json({ message: 'Product deleted successfully' });
     } catch (error) {

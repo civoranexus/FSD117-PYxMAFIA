@@ -27,8 +27,8 @@ async function getProductAuditLogs(req, res) {
     const { productId } = req.params;
     try {
         const auditLogs = await AuditLog.find({ productId }).populate("vendorId", "name").sort({ scannedAt: -1 });
-        if (!auditLogs) {
-            return res.status(404).json({ message: 'Product not found' });
+        if (!auditLogs || auditLogs.length === 0) {
+            return res.status(404).json({ message: 'No audit logs found for this product' });
         }
         res.status(200).json(auditLogs);
     } catch (error) {
@@ -61,7 +61,7 @@ async function getAuditLogsByQR(req, res) {
             populate("productId", "productName").
             populate("vendorId", "name email").
             sort({ scannedAt: -1 });
-        if (!auditLogs) {
+        if (!auditLogs || auditLogs.length === 0) {
             return res.status(404).json({ message: 'No audit logs found for this QR code' });
         }
         res.status(200).json(auditLogs);
