@@ -196,6 +196,12 @@ const VendorPage = () => {
     navigate('/vendor/products/edit', { state: { mode: 'edit', product } })
   }
 
+  const viewDetails = (product) => {
+    const id = product?.id ?? product?._id
+    if (!id) return
+    navigate(`/vendor/products/${encodeURIComponent(id)}`)
+  }
+
   const onDelete = async (product) => {
     const ok = await confirmToast(`Delete "${product.productName}"? This cannot be undone.`)
     if (!ok) return
@@ -348,6 +354,19 @@ const VendorPage = () => {
                                 : 'absolute right-0 top-full mt-2 w-44 rounded-xl bg-white ring-1 ring-slate-200 shadow-xl overflow-hidden z-50'
                             }
                           >
+                            <button
+                              onClick={() => {
+                                setOpenActionsForId(null)
+                                viewDetails(p)
+                              }}
+                              className={
+                                isBlocked
+                                  ? 'w-full text-left px-4 py-3 text-sm text-slate-50 hover:bg-slate-800'
+                                  : 'w-full text-left px-4 py-3 text-sm text-slate-900 hover:bg-slate-50'
+                              }
+                            >
+                              View details
+                            </button>
                             <button
                               onClick={() => startEdit(p)}
                               className={

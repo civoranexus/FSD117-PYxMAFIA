@@ -8,6 +8,7 @@ import VendorPage from '../pages/VendorPage.jsx'
 import ProductPage from '../pages/ProductPage.jsx'
 import VendorProductFormPage from '../pages/VendorProductFormPage.jsx'
 import AdminDashboardPage from '../pages/AdminDashboardPage.jsx'
+import VendorProductDetailsPage from '../pages/VendorProductDetailsPage.jsx'
 
 const AppRouter = () => {
   return (
@@ -23,6 +24,7 @@ const AppRouter = () => {
         <Route path="/admin-dashboard" element={<AdminDashboardPage />} />
         <Route path="/vendor/products/new" element={<VendorProductFormPage />} />
         <Route path="/vendor/products/edit" element={<VendorProductFormPage />} />
+        <Route path="/vendor/products/:id" element={<VendorProductDetailsPage />} />
       </Routes>
     </Router>
   )

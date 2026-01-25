@@ -39,6 +39,8 @@ const Badge = ({ children, tone = 'slate' }) => {
 const AdminDashboardPage = () => {
   const [activeTab, setActiveTab] = useState('suspicious')
 
+  const [vendorSearch, setVendorSearch] = useState('')
+
   const [stats, setStats] = useState(null)
   const [vendors, setVendors] = useState([])
   const [products, setProducts] = useState([])
@@ -51,8 +53,11 @@ const AdminDashboardPage = () => {
     setStats(data?.stats || null)
   }
 
-  const loadVendors = async () => {
-    const { data } = await apiClient.get(`${ADMIN_BASE}/vendors`)
+  const loadVendors = async (search) => {
+    const params = {}
+    if (typeof search === 'string' && search.trim()) params.search = search.trim()
+
+    const { data } = await apiClient.get(`${ADMIN_BASE}/vendors`, { params })
     setVendors(data?.vendors || [])
   }
 
@@ -73,7 +78,7 @@ const AdminDashboardPage = () => {
   const refresh = async () => {
     setLoading(true)
     try {
-      await Promise.all([loadStats(), loadVendors(), loadSuspiciousProducts(), loadAuditLogs()])
+      await Promise.all([loadStats(), loadVendors(vendorSearch), loadSuspiciousProducts(), loadAuditLogs()])
     } catch (e) {
       toast.error(getApiErrorMessage(e, 'Failed to load admin dashboard data.'))
     } finally {
@@ -84,6 +89,23 @@ const AdminDashboardPage = () => {
   useEffect(() => {
     refresh()
   }, [])
+
+  useEffect(() => {
+    if (activeTab !== 'vendors') return
+
+    let cancelled = false
+    const t = setTimeout(() => {
+      if (cancelled) return
+      loadVendors(vendorSearch).catch((e) => {
+        toast.error(getApiErrorMessage(e, 'Failed to load vendors.'))
+      })
+    }, 250)
+
+    return () => {
+      cancelled = true
+      clearTimeout(t)
+    }
+  }, [vendorSearch, activeTab])
 
   const counts = useMemo(() => {
     return {
@@ -255,7 +277,21 @@ const AdminDashboardPage = () => {
 
           {activeTab === 'vendors' ? (
             <section className="mt-6">
-              <h3 className="text-sm font-semibold text-slate-900">Vendors</h3>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-900">Vendors</h3>
+                  <p className="mt-1 text-xs text-slate-600">Search by vendor name.</p>
+                </div>
+                <div className="w-full sm:w-80">
+                  <label className="block text-xs font-semibold text-slate-700">Search</label>
+                  <input
+                    value={vendorSearch}
+                    onChange={(e) => setVendorSearch(e.target.value)}
+                    placeholder="e.g. Rahul Traders"
+                    className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-900/20"
+                  />
+                </div>
+              </div>
               <div className="mt-4 overflow-hidden rounded-2xl ring-1 ring-slate-200 bg-white">
                 <table className="w-full text-sm">
                   <thead className="bg-slate-50 text-slate-600">

@@ -2,6 +2,8 @@ import User from "../models/user.model.js";
 import Product from "../models/product.model.js";
 import AuditLog from "../models/auditLog.model.js";
 
+const escapeRegex = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 const parseBoolean = (value) => {
     if (value === undefined || value === null) return undefined;
     const v = String(value).trim().toLowerCase();
@@ -141,7 +143,14 @@ const adminController = {
     // Get all vendors
     getAllVendors: async (req, res) => {
         try {
-            const vendors = await User.find({ role: 'vendor' }).select('-password');
+            const { search } = req.query;
+
+            const filter = { role: 'vendor' };
+            if (typeof search === 'string' && search.trim()) {
+                filter.name = { $regex: escapeRegex(search.trim()), $options: 'i' };
+            }
+
+            const vendors = await User.find(filter).select('-password');
             res.status(200).json({ 
                 success: true, 
                 count: vendors.length,

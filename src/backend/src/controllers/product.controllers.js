@@ -274,6 +274,46 @@ async function vendorName(req, res) {
     }
 }
 
+// Vendor/Admin: product details by productId + full audit logs.
+// - Vendor can only access their own products.
+// - Admin can access any product.
+async function getVendorProductDetails(req, res) {
+    const { id: productId } = req.params;
+    const requester = req.user;
+
+    try {
+        const product = await productModel.findById(productId);
+        if (!product) {
+            return res.status(404).json({ message: 'Product not found' });
+        }
+
+        const isAdmin = requester?.role === 'admin';
+        const isVendor = requester?.role === 'vendor';
+
+        if (!isAdmin && !isVendor) {
+            return res.status(403).json({ message: 'Access denied' });
+        }
+
+        if (isVendor && product.vendorId.toString() !== requester._id.toString()) {
+            return res.status(403).json({ message: 'Unauthorized to view this product' });
+        }
+
+        const auditLogs = await AuditLog.find({ productId })
+            .populate('vendorId', 'name email role')
+            .sort({ scannedAt: -1 });
+
+        return res.status(200).json({
+            success: true,
+            product,
+            auditCount: auditLogs.length,
+            auditLogs
+        });
+    } catch (error) {
+        console.error('Error fetching vendor product details:', error);
+        return res.status(500).json({ message: 'Internal server error' });
+    }
+}
+
 const productController = {
     createProduct,
     getProducts,
@@ -282,6 +322,7 @@ const productController = {
     activateProduct,
     deleteProduct,
     updateProduct,
-    vendorName
+    vendorName,
+    getVendorProductDetails
 };
 export default productController;
