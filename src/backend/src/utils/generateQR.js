@@ -1,24 +1,42 @@
 import QRCode from "qrcode";
 import cloudinary from "../config/cloudinary.js";
 import fs from "fs";
+import path from "path";
 
 export const generateQR = async (token) => {
-  // generate QR in memory
-  const qrBuffer = await QRCode.toBuffer(token);
+  try {
+    // generate QR in memory
+    const qrBuffer = await QRCode.toBuffer(token);
 
-  // write temp file
-  const tempPath = `./temp-${token}.png`;
-  fs.writeFileSync(tempPath, qrBuffer);
+    // Create temp directory if it doesn't exist
+    const tempDir = path.join(process.cwd(), "temp");
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
 
-  // upload to cloudinary
-  const result = await cloudinary.uploader.upload(tempPath, {
-    folder: "vendorverify/qrcodes"
-  });
+    // write temp file with sanitized name
+    const sanitizedToken = token.substring(0, 32); // Limit filename length
+    const tempPath = path.join(tempDir, `qr-${sanitizedToken}.png`);
+    fs.writeFileSync(tempPath, qrBuffer);
 
-  // cleanup temp file
-  fs.unlinkSync(tempPath);
+    // upload to cloudinary
+    const result = await cloudinary.uploader.upload(tempPath, {
+      folder: "vendorverify/qrcodes",
+      resource_type: "image"
+    });
 
-  return result.secure_url;
+    // cleanup temp file
+    try {
+      fs.unlinkSync(tempPath);
+    } catch (cleanupError) {
+      console.warn("Failed to cleanup temp file:", cleanupError);
+    }
+
+    return result.secure_url;
+  } catch (error) {
+    console.error("Error generating QR code:", error);
+    throw new Error("Failed to generate QR code");
+  }
 };
 
 

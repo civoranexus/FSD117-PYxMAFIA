@@ -18,9 +18,12 @@ async function registerUser(req, res) {
         if (existingUser) {
             return res.status(400).json({ message: 'User with this email or phone number already exists, please login instead' });
         }
-        // if(phone_no.length == 10){
-        //     return res.status(400).json({ message: 'Phone number is not valid' });
-        // }
+        
+        // Validate phone number length
+        if (phone_no.length !== 10) {
+            return res.status(400).json({ message: 'Phone number must be exactly 10 digits' });
+        }
+        
         if (typeof password !== 'string' || password.length < 6) {
             return res.status(400).json({ message: 'Password must be at least 6 characters long' });
         }

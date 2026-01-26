@@ -108,10 +108,10 @@ async function getProductByQRCode(req, res) {
         const MULTI_IP_THRESHOLD = 2;
         const MULTI_LOCATION_THRESHOLD = 2;
 
-        const isRapidRepeat = scanCountWithThis >= MAX_SCANS_IN_WINDOW;
-        const isMultiIp = uniqueIPs.size >= MULTI_IP_THRESHOLD;
-        const isMultiLocation = uniqueLocations.size >= MULTI_LOCATION_THRESHOLD;
-        const isRepeatedAfterUsed = product.qrStatus === "used" && scanCountWithThis >= MAX_SCANS_AFTER_USED;
+        const isRapidRepeat = scanCountWithThis > MAX_SCANS_IN_WINDOW;
+        const isMultiIp = uniqueIPs.size > MULTI_IP_THRESHOLD;
+        const isMultiLocation = uniqueLocations.size > MULTI_LOCATION_THRESHOLD;
+        const isRepeatedAfterUsed = product.qrStatus === "used" && scanCountWithThis > MAX_SCANS_AFTER_USED;
 
         const compromised = (scanResult !== "Blocked") && (isRapidRepeat || isMultiIp || isMultiLocation || isRepeatedAfterUsed);
 
@@ -262,12 +262,11 @@ async function updateProduct(req, res) {
 async function vendorName(req, res) {
     const vendorId = req.user._id;
     try {
-        const name = await User.find({ _id: vendorId }).select('name').limit(1);
-        if (name.length === 0) {
-            return res.status(404).json({ message: 'No products found for this vendor' });
+        const user = await User.findById(vendorId).select('name');
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
         }
-        const vendorName = name[0].name;
-        res.status(200).json({ vendorName });
+        res.status(200).json({ vendorName: user.name });
     } catch (error) {
         console.error("Error fetching vendor name:", error);
         res.status(500).json({ message: 'Internal server error' });

@@ -13,7 +13,7 @@ async function getAllAuditLogs(req, res) {
 
 async function getVendorAuditLogs(req, res) {
     try {
-        const products = await Product.find({ vendorId: req.user.id });
+        const products = await Product.find({ vendorId: req.user._id });
         const productIds = products.map(product => product._id);
         const auditLogs = await AuditLog.find({ productId: { $in: productIds } }).populate("vendorId", "name email").sort({ scannedAt: -1 });
         res.status(200).json(auditLogs);
