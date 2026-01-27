@@ -32,6 +32,14 @@ const NavigationBar = () => {
           <Link to="/" className="text-lg font-semibold text-slate-900">
             VendorVerify
           </Link>
+          <nav className="hidden sm:flex items-center gap-1 ml-4">
+            <Link to="/about" className="text-sm text-slate-600 hover:text-slate-900 px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors">
+              About
+            </Link>
+            <Link to="/contact" className="text-sm text-slate-600 hover:text-slate-900 px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors">
+              Contact
+            </Link>
+          </nav>
         </div>
 
         <div className="flex items-center gap-2">

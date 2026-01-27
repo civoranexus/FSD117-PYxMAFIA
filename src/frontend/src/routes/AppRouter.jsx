@@ -4,6 +4,7 @@ import HomePage from '../pages/HomePage.jsx'
 import LoginPage from '../pages/LoginPage.jsx'
 import RegisterPage from '../pages/RegisterPage.jsx'
 import AboutPage from '../pages/AboutPage.jsx'
+import ContactUsPage from '../pages/ContactUsPage.jsx'
 import VendorPage from '../pages/VendorPage.jsx'
 import ProductPage from '../pages/ProductPage.jsx'
 import VendorProductFormPage from '../pages/VendorProductFormPage.jsx'
@@ -17,6 +18,7 @@ const AppRouter = () => {
         <Route path="/" element={<HomePage />} />
         <Route path="/product" element={<ProductPage />} />
         <Route path="/about" element={<AboutPage />} />
+        <Route path="/contact" element={<ContactUsPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/login/:role" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
