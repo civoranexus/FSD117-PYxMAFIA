@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import NavigationBar from '../components/NavigationBar.jsx'
 import toast from 'react-hot-toast'
+import apiClient, { getApiErrorMessage } from '../api/axios.js'
 
 const ContactUsPage = () => {
   const [formData, setFormData] = useState({
@@ -10,6 +11,8 @@ const ContactUsPage = () => {
     message: ''
   })
 
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
   const handleChange = (e) => {
     const { name, value } = e.target
     setFormData(prev => ({
@@ -18,20 +21,27 @@ const ContactUsPage = () => {
     }))
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    
-    // Here you would typically send the form data to your backend
-    console.log('Contact form submitted:', formData)
-    toast.success('Thank you for contacting us! We will get back to you soon.')
-    
-    // Reset form
-    setFormData({
-      name: '',
-      email: '',
-      subject: '',
-      message: ''
-    })
+
+    if (isSubmitting) return
+
+    try {
+      setIsSubmitting(true)
+      await apiClient.post('/contact', formData)
+      toast.success('Thank you for contacting us! We will get back to you soon.')
+
+      setFormData({
+        name: '',
+        email: '',
+        subject: '',
+        message: ''
+      })
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, 'Failed to send message. Please try again.'))
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -113,9 +123,10 @@ const ContactUsPage = () => {
 
               <button
                 type="submit"
-                className="w-full rounded-xl bg-black px-4 py-2.5 text-sm font-semibold text-white shadow-sm motion-safe:transition motion-safe:duration-200 hover:bg-slate-900 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-black/20"
+                disabled={isSubmitting}
+                className="w-full rounded-xl bg-black px-4 py-2.5 text-sm font-semibold text-white shadow-sm motion-safe:transition motion-safe:duration-200 hover:bg-slate-900 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-black/20 disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                Send Message
+                {isSubmitting ? 'Sending...' : 'Send Message'}
               </button>
             </form>
 

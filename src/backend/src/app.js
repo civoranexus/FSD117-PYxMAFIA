@@ -6,6 +6,7 @@ import productRouter from './routes/product.routes.js';
 import auditRouter from './routes/auditLog.routes.js';
 import adminRouter from './routes/admin.routes.js';
 import warmupRouter from './routes/warmup.routes.js';
+import contactRouter from './routes/contact.routes.js';
 import cors from 'cors';
 
 const app = express();
@@ -25,6 +26,7 @@ app.use('/api/products', productRouter);
 app.use("/api/audit", auditRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/warmup', warmupRouter);
+app.use('/api/contact', contactRouter);
 
 // Fallback error handler (for errors passed to next(err))
 app.use((err, req, res, next) => {
