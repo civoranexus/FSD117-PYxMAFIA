@@ -4,6 +4,7 @@ import NavigationBar from '../components/NavigationBar.jsx'
 import apiClient, { getApiErrorMessage } from '../api/axios.js'
 
 const ADMIN_BASE = '/admin'
+const CONTACT_PAGE_SIZE = 25
 
 const formatDateTime = (value) => {
   try {
@@ -46,6 +47,15 @@ const AdminDashboardPage = () => {
   const [products, setProducts] = useState([])
   const [auditLogs, setAuditLogs] = useState([])
 
+  const [contactMessages, setContactMessages] = useState([])
+  const [contactTotal, setContactTotal] = useState(0)
+  const [contactPage, setContactPage] = useState(1)
+  const [contactSearch, setContactSearch] = useState('')
+  const [contactStatus, setContactStatus] = useState('all')
+  const [selectedContactId, setSelectedContactId] = useState(null)
+  const [selectedContact, setSelectedContact] = useState(null)
+  const [contactDetailLoading, setContactDetailLoading] = useState(false)
+
   const [loading, setLoading] = useState(false)
 
   const loadStats = async () => {
@@ -75,10 +85,62 @@ const AdminDashboardPage = () => {
     setAuditLogs(data?.logs || [])
   }
 
+  const loadContactMessages = async ({ page, search, status } = {}) => {
+    const params = {
+      limit: CONTACT_PAGE_SIZE,
+      page: typeof page === 'number' && page > 0 ? page : contactPage,
+    }
+
+    const s = typeof search === 'string' ? search.trim() : ''
+    if (s) params.search = s
+
+    if (typeof status === 'string' && status !== 'all') params.status = status
+
+    const { data } = await apiClient.get(`${ADMIN_BASE}/contact-messages`, { params })
+    setContactMessages(data?.messages || [])
+    setContactTotal(typeof data?.total === 'number' ? data.total : 0)
+
+    // Keep page in sync with backend response (if any)
+    if (typeof data?.page === 'number') setContactPage(data.page)
+  }
+
+  const loadContactMessageDetail = async (id) => {
+    if (!id) return
+    setContactDetailLoading(true)
+    try {
+      const { data } = await apiClient.get(`${ADMIN_BASE}/contact-messages/${encodeURIComponent(id)}`)
+      setSelectedContact(data?.message || null)
+    } catch (e) {
+      toast.error(getApiErrorMessage(e, 'Failed to load contact message details.'))
+    } finally {
+      setContactDetailLoading(false)
+    }
+  }
+
+  const updateContactStatus = async (id, status) => {
+    if (!id) return
+    try {
+      await apiClient.patch(`${ADMIN_BASE}/contact-messages/${encodeURIComponent(id)}/status`, { status })
+      toast.success('Updated')
+      await Promise.all([
+        loadContactMessages({ page: contactPage, search: contactSearch, status: contactStatus }),
+        loadContactMessageDetail(id),
+      ])
+    } catch (e) {
+      toast.error(getApiErrorMessage(e, 'Failed to update contact status.'))
+    }
+  }
+
   const refresh = async () => {
     setLoading(true)
     try {
-      await Promise.all([loadStats(), loadVendors(vendorSearch), loadSuspiciousProducts(), loadAuditLogs()])
+      await Promise.all([
+        loadStats(),
+        loadVendors(vendorSearch),
+        loadSuspiciousProducts(),
+        loadAuditLogs(),
+        loadContactMessages({ page: contactPage, search: contactSearch, status: contactStatus }),
+      ])
     } catch (e) {
       toast.error(getApiErrorMessage(e, 'Failed to load admin dashboard data.'))
     } finally {
@@ -107,13 +169,31 @@ const AdminDashboardPage = () => {
     }
   }, [vendorSearch, activeTab])
 
+  useEffect(() => {
+    if (activeTab !== 'contacts') return
+
+    let cancelled = false
+    const t = setTimeout(() => {
+      if (cancelled) return
+      loadContactMessages({ page: contactPage, search: contactSearch, status: contactStatus }).catch((e) => {
+        toast.error(getApiErrorMessage(e, 'Failed to load contact messages.'))
+      })
+    }, 250)
+
+    return () => {
+      cancelled = true
+      clearTimeout(t)
+    }
+  }, [contactSearch, contactStatus, contactPage, activeTab])
+
   const counts = useMemo(() => {
     return {
       suspicious: Array.isArray(products) ? products.length : 0,
       vendors: Array.isArray(vendors) ? vendors.length : 0,
       logs: Array.isArray(auditLogs) ? auditLogs.length : 0,
+      contacts: typeof contactTotal === 'number' ? contactTotal : 0,
     }
-  }, [products, vendors, auditLogs])
+  }, [products, vendors, auditLogs, contactTotal])
 
   const setProductReview = async (id, payload) => {
     try {
@@ -134,11 +214,24 @@ const AdminDashboardPage = () => {
     return 'slate'
   }
 
+  const contactTone = (status) => {
+    if (status === 'new') return 'amber'
+    if (status === 'read') return 'sky'
+    if (status === 'replied') return 'emerald'
+    return 'slate'
+  }
+
   const tabs = [
     { key: 'suspicious', label: 'Suspicious Products', count: counts.suspicious },
     { key: 'vendors', label: 'Vendors', count: counts.vendors },
     { key: 'logs', label: 'Audit Logs', count: counts.logs },
+    { key: 'contacts', label: 'Contact Queries', count: counts.contacts },
   ]
+
+  const contactTotalPages = useMemo(() => {
+    const total = typeof contactTotal === 'number' ? contactTotal : 0
+    return Math.max(1, Math.ceil(total / CONTACT_PAGE_SIZE))
+  }, [contactTotal])
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
@@ -348,6 +441,197 @@ const AdminDashboardPage = () => {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            </section>
+          ) : null}
+
+          {activeTab === 'contacts' ? (
+            <section className="mt-6">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-900">Contact queries</h3>
+                  <p className="mt-1 text-xs text-slate-600">All Contact Us submissions. Click a row to inspect.</p>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                  <div className="w-full sm:w-80">
+                    <label className="block text-xs font-semibold text-slate-700">Search</label>
+                    <input
+                      value={contactSearch}
+                      onChange={(e) => {
+                        setContactPage(1)
+                        setContactSearch(e.target.value)
+                      }}
+                      placeholder="name, email, subject…"
+                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-900/20"
+                    />
+                  </div>
+
+                  <div className="w-full sm:w-44">
+                    <label className="block text-xs font-semibold text-slate-700">Status</label>
+                    <select
+                      value={contactStatus}
+                      onChange={(e) => {
+                        setContactPage(1)
+                        setContactStatus(e.target.value)
+                      }}
+                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-900/20"
+                    >
+                      <option value="all">All</option>
+                      <option value="new">New</option>
+                      <option value="read">Read</option>
+                      <option value="replied">Replied</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4 grid grid-cols-1 lg:grid-cols-3 gap-4">
+                <div className="lg:col-span-2">
+                  <div className="bg-white rounded-2xl shadow-sm ring-1 ring-slate-200 overflow-hidden">
+                    <div className="flex items-center justify-between p-3 border-b border-slate-100">
+                      <div className="text-xs text-slate-600">
+                        Page <span className="font-semibold">{contactPage}</span> of <span className="font-semibold">{contactTotalPages}</span>
+                        <span className="mx-2">•</span>
+                        Total <span className="font-semibold">{contactTotal}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setContactPage((p) => Math.max(1, p - 1))}
+                          disabled={contactPage <= 1}
+                          className="rounded-xl bg-slate-100 text-slate-900 px-3 py-1.5 text-xs font-semibold hover:bg-slate-200 disabled:opacity-60"
+                        >
+                          Prev
+                        </button>
+                        <button
+                          onClick={() => setContactPage((p) => Math.min(contactTotalPages, p + 1))}
+                          disabled={contactPage >= contactTotalPages}
+                          className="rounded-xl bg-slate-100 text-slate-900 px-3 py-1.5 text-xs font-semibold hover:bg-slate-200 disabled:opacity-60"
+                        >
+                          Next
+                        </button>
+                      </div>
+                    </div>
+
+                    <table className="w-full text-sm">
+                      <thead className="bg-slate-50 text-slate-600">
+                        <tr>
+                          <th className="text-left font-semibold p-3">Subject</th>
+                          <th className="text-left font-semibold p-3">From</th>
+                          <th className="text-left font-semibold p-3">Status</th>
+                          <th className="text-left font-semibold p-3">Created</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {!loading && contactMessages.length === 0 ? (
+                          <tr className="border-t border-slate-100">
+                            <td colSpan={4} className="p-6 text-slate-600">
+                              No contact messages found.
+                            </td>
+                          </tr>
+                        ) : null}
+
+                        {contactMessages.map((m) => {
+                          const selected = selectedContactId === m._id
+                          return (
+                            <tr
+                              key={m._id}
+                              className={
+                                selected
+                                  ? 'border-t border-slate-100 bg-slate-50 cursor-pointer'
+                                  : 'border-t border-slate-100 hover:bg-slate-50 cursor-pointer'
+                              }
+                              onClick={() => {
+                                setSelectedContactId(m._id)
+                                setSelectedContact(null)
+                                loadContactMessageDetail(m._id)
+                              }}
+                            >
+                              <td className="p-3 text-slate-900">
+                                <div className="font-semibold">{m?.subject || '—'}</div>
+                              </td>
+                              <td className="p-3 text-slate-700">
+                                <div className="font-semibold">{m?.name || '—'}</div>
+                                <div className="mt-0.5 text-xs text-slate-500">{m?.email || '—'}</div>
+                              </td>
+                              <td className="p-3">
+                                <Badge tone={contactTone(m?.status)}>{m?.status || '—'}</Badge>
+                              </td>
+                              <td className="p-3 text-slate-600">{formatDateTime(m?.createdAt)}</td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div className="lg:col-span-1">
+                  <div className="bg-white rounded-2xl shadow-sm ring-1 ring-slate-200 p-4">
+                    {!selectedContactId ? (
+                      <div className="text-sm text-slate-600">Select a message to inspect.</div>
+                    ) : contactDetailLoading ? (
+                      <div className="text-sm text-slate-600">Loading details…</div>
+                    ) : !selectedContact ? (
+                      <div className="text-sm text-slate-600">No details available.</div>
+                    ) : (
+                      <div>
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h4 className="text-sm font-semibold text-slate-900">{selectedContact?.subject || 'Contact message'}</h4>
+                              <Badge tone={contactTone(selectedContact?.status)}>{selectedContact?.status || '—'}</Badge>
+                            </div>
+                            <p className="mt-1 text-xs text-slate-600">
+                              From <span className="font-semibold">{selectedContact?.name || '—'}</span> • {selectedContact?.email || '—'}
+                            </p>
+                            <p className="mt-1 text-xs text-slate-500">Created: {formatDateTime(selectedContact?.createdAt)}</p>
+                          </div>
+                        </div>
+
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <button
+                            onClick={() => updateContactStatus(selectedContactId, 'new')}
+                            className="rounded-xl bg-slate-100 text-slate-900 px-3 py-2 text-xs font-semibold hover:bg-slate-200"
+                          >
+                            Mark new
+                          </button>
+                          <button
+                            onClick={() => updateContactStatus(selectedContactId, 'read')}
+                            className="rounded-xl bg-sky-600 text-white px-3 py-2 text-xs font-semibold hover:bg-sky-700"
+                          >
+                            Mark read
+                          </button>
+                          <button
+                            onClick={() => updateContactStatus(selectedContactId, 'replied')}
+                            className="rounded-xl bg-emerald-600 text-white px-3 py-2 text-xs font-semibold hover:bg-emerald-700"
+                          >
+                            Mark replied
+                          </button>
+                        </div>
+
+                        <div className="mt-4">
+                          <div className="text-xs font-semibold text-slate-700">Message</div>
+                          <div className="mt-1 whitespace-pre-wrap break-words rounded-xl bg-slate-50 ring-1 ring-slate-200 p-3 text-sm text-slate-800">
+                            {selectedContact?.message || '—'}
+                          </div>
+                        </div>
+
+                        <div className="mt-4 space-y-2 text-xs text-slate-600">
+                          <div>
+                            <span className="font-semibold">Updated:</span> {formatDateTime(selectedContact?.updatedAt)}
+                          </div>
+                          <div>
+                            <span className="font-semibold">IP:</span> {selectedContact?.ipAddress || '—'}
+                          </div>
+                          <div>
+                            <span className="font-semibold">User-Agent:</span> {selectedContact?.userAgent || '—'}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             </section>
           ) : null}

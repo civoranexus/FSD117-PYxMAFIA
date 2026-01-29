@@ -26,4 +26,9 @@ router.patch('/products/:id/review', adminController.reviewProduct);
 // Audit logs
 router.get('/audit-logs', adminController.getAuditLogs);
 
+// Contact-us queries (admin)
+router.get('/contact-messages', adminController.getContactMessages);
+router.get('/contact-messages/:id', adminController.getContactMessageById);
+router.patch('/contact-messages/:id/status', adminController.updateContactMessageStatus);
+
 export default router;

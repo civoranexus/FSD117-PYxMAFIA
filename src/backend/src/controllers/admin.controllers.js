@@ -1,6 +1,7 @@
 import User from "../models/user.model.js";
 import Product from "../models/product.model.js";
 import AuditLog from "../models/auditLog.model.js";
+import ContactMessage from "../models/contactMessage.model.js";
 
 const escapeRegex = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -13,6 +14,14 @@ const parseBoolean = (value) => {
 };
 
 const ALLOWED_QR_STATUS = new Set(["generated", "active", "used", "blocked"]);
+
+const ALLOWED_CONTACT_STATUS = new Set(["new", "read", "replied"]);
+
+const parsePositiveInt = (value, fallback) => {
+    const n = Number.parseInt(String(value), 10);
+    if (Number.isFinite(n) && n > 0) return n;
+    return fallback;
+};
 
 const adminController = {
     // Get all users
@@ -298,6 +307,112 @@ const adminController = {
                 success: false, 
                 message: "Error fetching audit logs", 
                 error: error.message 
+            });
+        }
+    }
+
+    ,
+
+    // Contact-us: list all messages (admin)
+    getContactMessages: async (req, res) => {
+        try {
+            const { status, search } = req.query;
+            const limit = parsePositiveInt(req.query.limit, 50);
+            const page = parsePositiveInt(req.query.page, 1);
+
+            const filter = {};
+            if (status && ALLOWED_CONTACT_STATUS.has(String(status))) {
+                filter.status = String(status);
+            }
+
+            if (typeof search === 'string' && search.trim()) {
+                const s = search.trim();
+                const rx = new RegExp(escapeRegex(s), 'i');
+                filter.$or = [{ name: rx }, { email: rx }, { subject: rx }, { message: rx }];
+            }
+
+            const skip = (page - 1) * limit;
+            const [total, messages] = await Promise.all([
+                ContactMessage.countDocuments(filter),
+                ContactMessage.find(filter)
+                    .sort({ createdAt: -1 })
+                    .skip(skip)
+                    .limit(limit)
+                    .select('name email subject status createdAt updatedAt')
+            ]);
+
+            res.status(200).json({
+                success: true,
+                total,
+                page,
+                limit,
+                count: messages.length,
+                messages,
+            });
+        } catch (error) {
+            console.error('Error fetching contact messages:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Error fetching contact messages',
+                error: error.message,
+            });
+        }
+    },
+
+    // Contact-us: get one message in detail (admin)
+    getContactMessageById: async (req, res) => {
+        try {
+            const { id } = req.params;
+            const message = await ContactMessage.findById(id);
+
+            if (!message) {
+                return res.status(404).json({ success: false, message: 'Contact message not found' });
+            }
+
+            res.status(200).json({ success: true, message });
+        } catch (error) {
+            console.error('Error fetching contact message:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Error fetching contact message',
+                error: error.message,
+            });
+        }
+    },
+
+    // Contact-us: update message status (admin)
+    updateContactMessageStatus: async (req, res) => {
+        try {
+            const { id } = req.params;
+            const { status } = req.body || {};
+            const nextStatus = String(status || '').trim();
+
+            if (!ALLOWED_CONTACT_STATUS.has(nextStatus)) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Invalid status. Must be one of: new, read, replied",
+                });
+            }
+
+            const message = await ContactMessage.findById(id);
+            if (!message) {
+                return res.status(404).json({ success: false, message: 'Contact message not found' });
+            }
+
+            message.status = nextStatus;
+            await message.save();
+
+            res.status(200).json({
+                success: true,
+                message: 'Contact message status updated',
+                contactMessage: message,
+            });
+        } catch (error) {
+            console.error('Error updating contact message status:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Error updating contact message status',
+                error: error.message,
             });
         }
     }
