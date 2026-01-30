@@ -75,7 +75,7 @@ frontend/
 
 - Node.js 18+ (recommended)
 - MongoDB connection string
-- A Cloudinary account (for QR uploads)
+- Cloudinary account (optional; used for QR uploads)
 
 ## Setup
 
@@ -95,6 +95,9 @@ CORS_ORIGIN=http://localhost:5173
 CLOUDINARY_CLOUD_NAME=...
 CLOUDINARY_API_KEY=...
 CLOUDINARY_API_SECRET=...
+
+# Optional: public backend base URL (used to build absolute URLs when saving QR images locally)
+PUBLIC_BASE_URL=http://localhost:3000
 ```
 
 ### 2) Install deps
@@ -186,4 +189,5 @@ Base prefix: `/api`
 ## Troubleshooting
 
 - If login/register works locally but not in production: verify `CORS_ORIGIN`, HTTPS, and cookie settings.
-- If QR generation fails: verify Cloudinary env vars are set and the Cloudinary account is active.
+- If QR generation fails with Cloudinary: verify `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`.
+- If Cloudinary isn't configured/working, the backend automatically falls back to saving QR images under `backend/uploads/qrcodes` and serves them from `GET /uploads/qrcodes/...`.

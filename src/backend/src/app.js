@@ -8,6 +8,8 @@ import adminRouter from './routes/admin.routes.js';
 import warmupRouter from './routes/warmup.routes.js';
 import contactRouter from './routes/contact.routes.js';
 import cors from 'cors';
+import path from 'path';
+import fs from 'fs';
 
 const app = express();
 app.use(cookieParser());
@@ -16,6 +18,13 @@ app.use(cors({
   credentials: true
 }));
 app.use(express.json());
+
+// Serve locally generated QR images (fallback when Cloudinary isn't configured)
+const uploadsDir = path.join(process.cwd(), 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+app.use('/uploads', express.static(uploadsDir));
 
 app.get('/', (req, res) => {
   res.send('Hello World!');

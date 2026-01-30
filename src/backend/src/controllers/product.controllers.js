@@ -313,6 +313,65 @@ async function getVendorProductDetails(req, res) {
     }
 }
 
+async function regenerateProductQr(req, res) {
+    const { id: productId } = req.params;
+    const requester = req.user;
+
+    try {
+        const product = await productModel.findById(productId);
+        if (!product) {
+            return res.status(404).json({ message: 'Product not found' });
+        }
+
+        const isAdmin = requester?.role === 'admin';
+        const isVendor = requester?.role === 'vendor';
+
+        if (!isAdmin && !isVendor) {
+            return res.status(403).json({ message: 'Access denied' });
+        }
+
+        if (isVendor && product.vendorId.toString() !== requester._id.toString()) {
+            return res.status(403).json({ message: 'Unauthorized to regenerate QR for this product' });
+        }
+
+        // Generate a fresh QR token; old printed/scanned tokens become invalid.
+        // Retry a few times in the extremely unlikely case of a unique collision.
+        let newQrCode = '';
+        let newQrImageUrl = '';
+        const MAX_ATTEMPTS = 3;
+
+        for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
+            newQrCode = crypto.randomBytes(32).toString('hex');
+            newQrImageUrl = await generateQR(newQrCode);
+
+            product.qrCode = newQrCode;
+            product.qrImageUrl = newQrImageUrl;
+            product.qrStatus = 'generated';
+            product.isSuspicious = false;
+            product.verificationCount = 0;
+            product.lastVerifiedAt = undefined;
+
+            try {
+                await product.save();
+                break;
+            } catch (err) {
+                // Duplicate key on qrCode unique index
+                if (err?.code === 11000 && attempt < MAX_ATTEMPTS) continue;
+                throw err;
+            }
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: 'QR code regenerated successfully. Previous QR codes are now invalid.',
+            product
+        });
+    } catch (error) {
+        console.error('Error regenerating QR code:', error);
+        return res.status(500).json({ message: 'Internal server error' });
+    }
+}
+
 const productController = {
     createProduct,
     getProducts,
@@ -322,6 +381,7 @@ const productController = {
     deleteProduct,
     updateProduct,
     vendorName,
-    getVendorProductDetails
+    getVendorProductDetails,
+    regenerateProductQr
 };
 export default productController;

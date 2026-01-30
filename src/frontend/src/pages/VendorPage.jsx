@@ -196,10 +196,11 @@ const VendorPage = () => {
     navigate('/vendor/products/edit', { state: { mode: 'edit', product } })
   }
 
-  const viewDetails = (product) => {
+  const openDetails = (product) => {
     const id = product?.id ?? product?._id
     if (!id) return
-    navigate(`/vendor/products/${encodeURIComponent(id)}`)
+    setOpenActionsForId(null)
+    navigate(`/vendor/products/${encodeURIComponent(id)}`, { state: { product } })
   }
 
   const onDelete = async (product) => {
@@ -355,10 +356,7 @@ const VendorPage = () => {
                             }
                           >
                             <button
-                              onClick={() => {
-                                setOpenActionsForId(null)
-                                viewDetails(p)
-                              }}
+                              onClick={() => openDetails(p)}
                               className={
                                 isBlocked
                                   ? 'w-full text-left px-4 py-3 text-sm text-slate-50 hover:bg-slate-800'
