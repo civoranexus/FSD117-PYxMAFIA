@@ -37,10 +37,59 @@ const Badge = ({ children, tone = 'slate' }) => {
   )
 }
 
+const ConfirmVendorBlockToast = ({ vendorName, onCancel, onConfirm }) => {
+  const [blockProducts, setBlockProducts] = useState(true)
+  const [reason, setReason] = useState('')
+
+  return (
+    <div className="w-[380px] rounded-2xl bg-white ring-1 ring-slate-200 shadow-xl p-4">
+      <div className="text-sm font-semibold text-slate-900">Block vendor?</div>
+      <div className="mt-2 text-sm text-slate-700">
+        Vendor: <span className="font-semibold">{vendorName || '—'}</span>
+      </div>
+      <div className="mt-2 text-xs text-slate-600">
+        Blocking a vendor will prevent them from logging in and using vendor-only features.
+      </div>
+
+      <label className="mt-4 flex items-center gap-2 text-sm text-slate-800">
+        <input type="checkbox" checked={blockProducts} onChange={(e) => setBlockProducts(e.target.checked)} />
+        Also block (invalidate) all their products
+      </label>
+
+      <div className="mt-3">
+        <label className="block text-xs font-semibold text-slate-700">Reason (optional)</label>
+        <input
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder="e.g. Too many fake/suspicious products"
+          className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-900/20"
+        />
+      </div>
+
+      <div className="mt-4 flex justify-end gap-2">
+        <button
+          onClick={onCancel}
+          className="rounded-xl bg-slate-100 text-slate-900 px-3 py-2 text-xs font-semibold hover:bg-slate-200"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={() => onConfirm({ blockProducts, reason })}
+          className="rounded-xl bg-red-600 text-white px-3 py-2 text-xs font-semibold hover:bg-red-700"
+        >
+          Block vendor
+        </button>
+      </div>
+    </div>
+  )
+}
+
 const AdminDashboardPage = () => {
   const [activeTab, setActiveTab] = useState('suspicious')
 
   const [vendorSearch, setVendorSearch] = useState('')
+
+  const [vendorMutatingId, setVendorMutatingId] = useState(null)
 
   const [stats, setStats] = useState(null)
   const [vendors, setVendors] = useState([])
@@ -202,6 +251,93 @@ const AdminDashboardPage = () => {
       await Promise.all([loadStats(), loadSuspiciousProducts()])
     } catch (e) {
       toast.error(getApiErrorMessage(e, 'Failed to update product.'))
+    }
+  }
+
+  const confirmToast = (title, message, confirmLabel = 'Confirm') => {
+    return new Promise((resolve) => {
+      toast.custom(
+        (t) => (
+          <div className="w-[360px] rounded-2xl bg-white ring-1 ring-slate-200 shadow-xl p-4">
+            <div className="text-sm font-semibold text-slate-900">{title}</div>
+            <div className="mt-2 text-sm text-slate-700">{message}</div>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                onClick={() => {
+                  toast.dismiss(t.id)
+                  resolve(false)
+                }}
+                className="rounded-xl bg-slate-100 text-slate-900 px-3 py-2 text-xs font-semibold hover:bg-slate-200"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  toast.dismiss(t.id)
+                  resolve(true)
+                }}
+                className="rounded-xl bg-slate-900 text-white px-3 py-2 text-xs font-semibold hover:bg-slate-800"
+              >
+                {confirmLabel}
+              </button>
+            </div>
+          </div>
+        ),
+        { duration: Infinity }
+      )
+    })
+  }
+
+  const confirmVendorBlock = (vendor) => {
+    return new Promise((resolve) => {
+      toast.custom(
+        (t) => (
+          <ConfirmVendorBlockToast
+            vendorName={vendor?.name}
+            onCancel={() => {
+              toast.dismiss(t.id)
+              resolve(null)
+            }}
+            onConfirm={(payload) => {
+              toast.dismiss(t.id)
+              resolve(payload)
+            }}
+          />
+        ),
+        { duration: Infinity }
+      )
+    })
+  }
+
+  const setVendorBlocked = async (vendor, nextBlocked) => {
+    if (!vendor?._id) return
+
+    if (!nextBlocked) {
+      const ok = await confirmToast('Unblock vendor?', 'This will allow the vendor to use the system again.', 'Unblock')
+      if (!ok) return
+    }
+
+    const blockPayload = nextBlocked ? await confirmVendorBlock(vendor) : null
+    if (nextBlocked && !blockPayload) return
+
+    setVendorMutatingId(vendor._id)
+    try {
+      const endpoint = nextBlocked
+        ? `${ADMIN_BASE}/vendors/${encodeURIComponent(vendor._id)}/block`
+        : `${ADMIN_BASE}/vendors/${encodeURIComponent(vendor._id)}/unblock`
+
+      await apiClient.patch(endpoint, {
+        isBlocked: nextBlocked,
+        blockProducts: nextBlocked ? !!blockPayload?.blockProducts : false,
+        reason: nextBlocked ? blockPayload?.reason || '' : '',
+      })
+
+      toast.success(nextBlocked ? 'Vendor blocked' : 'Vendor unblocked')
+      await Promise.all([loadStats(), loadVendors(vendorSearch)])
+    } catch (e) {
+      toast.error(getApiErrorMessage(e, 'Failed to update vendor status.'))
+    } finally {
+      setVendorMutatingId(null)
     }
   }
 
@@ -391,7 +527,9 @@ const AdminDashboardPage = () => {
                     <tr>
                       <th className="text-left font-semibold p-3">Name</th>
                       <th className="text-left font-semibold p-3">Email</th>
+                      <th className="text-left font-semibold p-3">Status</th>
                       <th className="text-left font-semibold p-3">Created</th>
+                      <th className="text-left font-semibold p-3">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -399,7 +537,29 @@ const AdminDashboardPage = () => {
                       <tr key={v._id} className="border-t border-slate-100">
                         <td className="p-3 text-slate-900 font-semibold">{v?.name || '—'}</td>
                         <td className="p-3 text-slate-700">{v?.email || '—'}</td>
+                        <td className="p-3">
+                          {v?.isBlocked ? <Badge tone="red">Blocked</Badge> : <Badge tone="emerald">Active</Badge>}
+                        </td>
                         <td className="p-3 text-slate-600">{formatDateTime(v?.createdAt)}</td>
+                        <td className="p-3">
+                          {v?.isBlocked ? (
+                            <button
+                              onClick={() => setVendorBlocked(v, false)}
+                              disabled={vendorMutatingId === v._id}
+                              className="rounded-xl bg-emerald-600 text-white px-3 py-2 text-xs font-semibold hover:bg-emerald-700 disabled:opacity-60"
+                            >
+                              {vendorMutatingId === v._id ? 'Working…' : 'Unblock'}
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => setVendorBlocked(v, true)}
+                              disabled={vendorMutatingId === v._id}
+                              className="rounded-xl bg-red-600 text-white px-3 py-2 text-xs font-semibold hover:bg-red-700 disabled:opacity-60"
+                            >
+                              {vendorMutatingId === v._id ? 'Working…' : 'Block'}
+                            </button>
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>

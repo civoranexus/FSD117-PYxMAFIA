@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useNavigate } from 'react-router-dom'
 import apiClient from '../api/axios.js'
@@ -6,6 +6,7 @@ import toast from 'react-hot-toast'
 
 const NavigationBar = () => {
   const navigate = useNavigate()
+  const [loggingOut, setLoggingOut] = useState(false)
 
   const buttonClass =
     'inline-flex items-center justify-center rounded-xl bg-black px-4 py-2 text-sm font-semibold text-white shadow-sm motion-safe:transition motion-safe:duration-200 hover:bg-slate-900 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-black/20'
@@ -13,8 +14,12 @@ const NavigationBar = () => {
   const role = typeof window !== 'undefined' ? window.localStorage.getItem('role') : ''
 
   const logout = async () => {
+    if (loggingOut) return
+    setLoggingOut(true)
     try {
-      await apiClient.post('/auth/logout', null, { skipGlobalLoader: true })
+      // Important: Express' default JSON parser is strict (objects/arrays only).
+      // Sending `null` causes: "Unexpected token 'n', \"null\" is not valid JSON".
+      await apiClient.post('/auth/logout', {}, { skipGlobalLoader: true })
     } catch {
       // ignore
     } finally {
@@ -22,6 +27,7 @@ const NavigationBar = () => {
       window.localStorage.removeItem('vendorName')
       toast.success('Logged out')
       navigate('/')
+      setLoggingOut(false)
     }
   }
 
@@ -54,8 +60,8 @@ const NavigationBar = () => {
           ) : null}
 
           {role ? (
-            <button onClick={logout} className={buttonClass}>
-              Logout
+            <button onClick={logout} className={buttonClass} disabled={loggingOut}>
+              {loggingOut ? 'Logging out…' : 'Logout'}
             </button>
           ) : (
             <Link to="/login" className={buttonClass}>

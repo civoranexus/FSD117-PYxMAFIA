@@ -9,7 +9,12 @@ const userModel = new mongoose.Schema({
         type: String,
         enum: ["user", "vendor", "admin"],
         default: "user"
-    }
+    },
+
+    // Admin can block a user/vendor from using the system
+    isBlocked: { type: Boolean, default: false },
+    blockedAt: { type: Date },
+    blockedReason: { type: String }
 }, {
     timestamps: true
 });

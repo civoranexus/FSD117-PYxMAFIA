@@ -14,6 +14,10 @@ async function authMiddleware(req, res, next) {
         if (!user) {
             return res.status(401).json({ message: 'User not found' });
         }
+
+        if (user.isBlocked) {
+            return res.status(403).json({ message: 'Account is blocked. Please contact support.' });
+        }
         
         req.user = user;
         next();

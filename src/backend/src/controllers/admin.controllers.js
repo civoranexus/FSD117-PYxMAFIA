@@ -175,6 +175,89 @@ const adminController = {
         }
     },
 
+    // Vendor summary (admin-only): counts to help decide if vendor is creating too many fake/suspicious products
+    getVendorSummary: async (req, res) => {
+        try {
+            const { id } = req.params;
+
+            const vendor = await User.findById(id).select('-password');
+            if (!vendor) {
+                return res.status(404).json({ success: false, message: 'Vendor not found' });
+            }
+            if (vendor.role !== 'vendor') {
+                return res.status(400).json({ success: false, message: 'User is not a vendor' });
+            }
+
+            const [totalProducts, suspiciousProducts, blockedProducts, activeProducts] = await Promise.all([
+                Product.countDocuments({ vendorId: id }),
+                Product.countDocuments({ vendorId: id, isSuspicious: true }),
+                Product.countDocuments({ vendorId: id, qrStatus: 'blocked' }),
+                Product.countDocuments({ vendorId: id, qrStatus: 'active' })
+            ]);
+
+            return res.status(200).json({
+                success: true,
+                vendor,
+                products: {
+                    total: totalProducts,
+                    suspicious: suspiciousProducts,
+                    blocked: blockedProducts,
+                    active: activeProducts
+                }
+            });
+        } catch (error) {
+            console.error('Error fetching vendor summary:', error);
+            return res.status(500).json({ success: false, message: 'Error fetching vendor summary', error: error.message });
+        }
+    },
+
+    // Block/unblock vendor. Optionally block all their products to invalidate them.
+    setVendorBlockedStatus: async (req, res) => {
+        try {
+            const { id } = req.params;
+            const { isBlocked, reason, blockProducts } = req.body || {};
+
+            const nextBlocked = parseBoolean(isBlocked);
+            if (nextBlocked === undefined) {
+                return res.status(400).json({ success: false, message: 'isBlocked must be a boolean' });
+            }
+
+            const vendor = await User.findById(id);
+            if (!vendor) {
+                return res.status(404).json({ success: false, message: 'Vendor not found' });
+            }
+            if (vendor.role !== 'vendor') {
+                return res.status(400).json({ success: false, message: 'User is not a vendor' });
+            }
+
+            vendor.isBlocked = nextBlocked;
+            vendor.blockedAt = nextBlocked ? new Date() : undefined;
+            vendor.blockedReason = nextBlocked ? (typeof reason === 'string' ? reason.trim().slice(0, 200) : '') : undefined;
+            await vendor.save();
+
+            const shouldBlockProducts = nextBlocked && (parseBoolean(blockProducts) ?? true);
+            let productsUpdated = 0;
+            if (shouldBlockProducts) {
+                const result = await Product.updateMany(
+                    { vendorId: id },
+                    { $set: { qrStatus: 'blocked', isSuspicious: true } }
+                );
+                productsUpdated = result?.modifiedCount ?? result?.nModified ?? 0;
+            }
+
+            const safeVendor = await User.findById(id).select('-password');
+            return res.status(200).json({
+                success: true,
+                message: nextBlocked ? 'Vendor blocked successfully' : 'Vendor unblocked successfully',
+                vendor: safeVendor,
+                productsUpdated
+            });
+        } catch (error) {
+            console.error('Error updating vendor block status:', error);
+            return res.status(500).json({ success: false, message: 'Error updating vendor block status', error: error.message });
+        }
+    },
+
     // Get dashboard statistics
     getDashboardStats: async (req, res) => {
         try {
