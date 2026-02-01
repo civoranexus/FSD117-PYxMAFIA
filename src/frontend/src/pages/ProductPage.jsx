@@ -70,6 +70,12 @@ const statusStyles = {
     dot: 'bg-slate-500',
     label: 'Invalid',
   },
+  Expired: {
+    page: 'bg-rose-50',
+    badge: 'bg-rose-100 text-rose-900 ring-1 ring-rose-200',
+    dot: 'bg-rose-500',
+    label: 'Expired',
+  },
   Unknown: {
     page: 'bg-slate-50',
     badge: 'bg-slate-100 text-slate-900 ring-1 ring-slate-200',
@@ -123,6 +129,10 @@ const ProductPage = () => {
 
   const qr = qrFromState || qrFromQuery
 
+  const qrNormalized = useMemo(() => {
+    return typeof qr === 'string' ? qr.trim() : ''
+  }, [qr])
+
   const rawResult = useMemo(() => {
     return location?.state?.productResult ?? fetchedResult
   }, [location?.state?.productResult, fetchedResult])
@@ -132,7 +142,7 @@ const ProductPage = () => {
   useEffect(() => {
     // If someone refreshes /product, React Router state is lost.
     // We fall back to fetching by qr query param so the details still render.
-    if (!qr) return
+    if (!qrNormalized) return
     if (location?.state?.productResult) return
     if (fetchedResult) return
 
@@ -142,7 +152,7 @@ const ProductPage = () => {
       setFetchError('')
       setFetchingResult(true)
       apiClient
-        .get(`/products/${encodeURIComponent(qr)}`)
+        .get(`/products/${encodeURIComponent(qrNormalized)}`)
         .then((res) => {
           if (cancelled) return
           setFetchedResult(res?.data)
@@ -163,7 +173,7 @@ const ProductPage = () => {
       cancelled = true
       clearTimeout(t)
     }
-  }, [qr, location?.state?.productResult, fetchedResult])
+  }, [qrNormalized, location?.state?.productResult, fetchedResult])
 
   const product = useMemo(() => {
     if (!isPlainObject(response)) return undefined
@@ -197,7 +207,12 @@ const ProductPage = () => {
 
   const scanStatus = useMemo(() => {
     const s = typeof scanStatusRaw === 'string' ? scanStatusRaw : ''
-    if (['Valid', 'Invalid', 'AlreadyUsed', 'Blocked'].includes(s)) return s
+    if (['Valid', 'Invalid', 'AlreadyUsed', 'Blocked', 'Expired'].includes(s)) return s
+
+    // If backend didn't provide status, infer expiry.
+    const expiry = product?.expiryDate ? new Date(product.expiryDate) : null
+    if (expiry && !Number.isNaN(expiry.getTime()) && Date.now() > expiry.getTime()) return 'Expired'
+
     // Fallback: infer from product.qrStatus
     const qrStatus = typeof product?.qrStatus === 'string' ? product.qrStatus : ''
     if (qrStatus === 'blocked') return 'Blocked'
@@ -207,6 +222,7 @@ const ProductPage = () => {
 
   const styleKey = useMemo(() => {
     if (scanStatus === 'Blocked') return 'Blocked'
+    if (scanStatus === 'Expired') return 'Expired'
     if (scanStatus === 'Invalid') return 'Invalid'
     if (suspicious) return 'Suspicious'
     if (scanStatus === 'AlreadyUsed') return 'AlreadyUsed'

@@ -34,11 +34,46 @@ const HomePage = () => {
         setScanSeverity('');
     };
 
+    const normalizeQrText = (value) => {
+        if (typeof value !== 'string') return '';
+        const raw = value.trim();
+        if (!raw) return '';
+
+        // If QR encodes JSON like {"qr":"..."} or {"code":"..."}
+        if ((raw.startsWith('{') && raw.endsWith('}')) || (raw.startsWith('"') && raw.endsWith('"'))) {
+            try {
+                const parsed = JSON.parse(raw);
+                const candidate = parsed?.qr || parsed?.code || parsed?.qrCode || parsed?.token;
+                if (typeof candidate === 'string' && candidate.trim()) return candidate.trim();
+            } catch {
+                // ignore
+            }
+        }
+
+        // If QR encodes a URL, try to extract common query params
+        try {
+            const url = new URL(raw);
+            const sp = url.searchParams;
+            const candidate = sp.get('qr') || sp.get('code') || sp.get('qrCode') || sp.get('token');
+            if (typeof candidate === 'string' && candidate.trim()) return candidate.trim();
+
+            // Fallback: last path segment
+            const segments = url.pathname.split('/').filter(Boolean);
+            const last = segments[segments.length - 1];
+            if (typeof last === 'string' && last.trim()) return last.trim();
+        } catch {
+            // not a URL
+        }
+
+        return raw;
+    };
+
     const verifyQr = async (qrText) => {
         if (isVerifying) return;
 
         setShowScanner(false);
-        console.log("Scanned QR:", qrText);
+        const normalizedQr = normalizeQrText(qrText);
+        console.log("Scanned QR:", normalizedQr);
 
         clearScanStatus();
         setIsVerifying(true);
@@ -46,18 +81,35 @@ const HomePage = () => {
 
         try {
             const { data } = await apiClient.get(
-                `/products/${encodeURIComponent(qrText)}`
+                `/products/${encodeURIComponent(normalizedQr)}`
             );
 
-            if (data?.status === 'Invalid' || data?.status === 'Blocked') {
-                const msg = data?.message || 'Product verification failed.'; setScanSeverity('error');
-                setScanError(msg);
-                toast.error(msg);
-                return;
+            const status = data?.status
+            const hasProduct = Boolean(data?.product)
+
+            // If backend returns a product payload, navigate to the product page so the UI can
+            // show the status (Invalid/Blocked/etc) along with details.
+            if ((status === 'Invalid' || status === 'Blocked' || status === 'Expired') && !hasProduct) {
+                const msg = data?.message || 'Product verification failed.'
+                setScanSeverity('error')
+                setScanError(msg)
+                toast.error(msg)
+                return
             }
 
-            navigate(`/product?qr=${encodeURIComponent(qrText)}`, {
-                state: { qr: qrText, productResult: data },
+            if (status === 'Invalid' || status === 'Blocked' || status === 'Expired') {
+                const msg =
+                    data?.message ||
+                    (status === 'Blocked'
+                        ? 'This product is blocked.'
+                        : status === 'Expired'
+                            ? 'This product is expired.'
+                            : 'This product is not yet active.')
+                toast.error(msg)
+            }
+
+            navigate(`/product?qr=${encodeURIComponent(normalizedQr)}`, {
+                state: { qr: normalizedQr, productResult: data },
             });
 
         } catch (error) {

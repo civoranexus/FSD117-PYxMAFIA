@@ -20,7 +20,7 @@ const auditLogSchema = new mongoose.Schema({
 
   scanResult: {
     type: String,
-    enum: ["Valid", "Invalid", "AlreadyUsed", "Blocked"],
+    enum: ["Valid", "Invalid", "AlreadyUsed", "Blocked", "Expired"],
     required: true
   },
 

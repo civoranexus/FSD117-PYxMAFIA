@@ -357,6 +357,11 @@ const AdminDashboardPage = () => {
     return 'slate'
   }
 
+  const contactLabel = (status) => {
+    if (status === 'replied') return 'acknowledged'
+    return status || '—'
+  }
+
   const tabs = [
     { key: 'suspicious', label: 'Suspicious Products', count: counts.suspicious },
     { key: 'vendors', label: 'Vendors', count: counts.vendors },
@@ -640,7 +645,7 @@ const AdminDashboardPage = () => {
                       <option value="all">All</option>
                       <option value="new">New</option>
                       <option value="read">Read</option>
-                      <option value="replied">Replied</option>
+                      <option value="replied">Acknowledged</option>
                     </select>
                   </div>
                 </div>
@@ -715,7 +720,7 @@ const AdminDashboardPage = () => {
                                 <div className="mt-0.5 text-xs text-slate-500">{m?.email || '—'}</div>
                               </td>
                               <td className="p-3">
-                                <Badge tone={contactTone(m?.status)}>{m?.status || '—'}</Badge>
+                                <Badge tone={contactTone(m?.status)}>{contactLabel(m?.status)}</Badge>
                               </td>
                               <td className="p-3 text-slate-600">{formatDateTime(m?.createdAt)}</td>
                             </tr>
@@ -740,7 +745,7 @@ const AdminDashboardPage = () => {
                           <div>
                             <div className="flex items-center gap-2">
                               <h4 className="text-sm font-semibold text-slate-900">{selectedContact?.subject || 'Contact message'}</h4>
-                              <Badge tone={contactTone(selectedContact?.status)}>{selectedContact?.status || '—'}</Badge>
+                                <Badge tone={contactTone(selectedContact?.status)}>{contactLabel(selectedContact?.status)}</Badge>
                             </div>
                             <p className="mt-1 text-xs text-slate-600">
                               From <span className="font-semibold">{selectedContact?.name || '—'}</span> • {selectedContact?.email || '—'}
@@ -766,7 +771,7 @@ const AdminDashboardPage = () => {
                             onClick={() => updateContactStatus(selectedContactId, 'replied')}
                             className="rounded-xl bg-emerald-600 text-white px-3 py-2 text-xs font-semibold hover:bg-emerald-700"
                           >
-                            Mark replied
+                            Mark acknowledged
                           </button>
                         </div>
 

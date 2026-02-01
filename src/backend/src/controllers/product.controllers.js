@@ -27,7 +27,8 @@ async function createProduct(req, res) {
             expiryDate,
             vendorId,
             vendorName,
-            qrStatus: "generated",
+            // Make newly created products immediately scannable.
+            qrStatus: "active",
             qrCode,
             qrImageUrl
         });
@@ -35,6 +36,15 @@ async function createProduct(req, res) {
         res.status(201).json({ message: 'Product created successfully', productId: newProduct._id });
     } catch (error) {
         console.error("Error creating product:", error);
+        if (error?.name === 'ValidationError') {
+            return res.status(400).json({
+                message: error?.message || 'Product validation failed',
+                errors: error?.errors ? Object.keys(error.errors) : undefined,
+            });
+        }
+        if (error?.code === 11000) {
+            return res.status(409).json({ message: 'Duplicate value error. Please retry.' });
+        }
         res.status(500).json({ message: 'Internal server error' });
     }
 }
@@ -54,7 +64,8 @@ async function getProductByQRCode(req, res) {
     const { id: qrCode } = req.params;
 
     try {
-        const product = await productModel.findOne({ qrCode });
+        const normalizedQr = typeof qrCode === 'string' ? qrCode.trim() : '';
+        const product = await productModel.findOne({ qrCode: normalizedQr });
 
         // If the QR does not exist => Invalid
         if (!product) {
@@ -75,9 +86,18 @@ async function getProductByQRCode(req, res) {
 
         // Determine status
         let scanResult = "Invalid";
+        let message = undefined;
+
+        const now = new Date();
+        const expiry = product?.expiryDate ? new Date(product.expiryDate) : null;
+        const isExpired = expiry && !Number.isNaN(expiry.getTime()) && now.getTime() > expiry.getTime();
 
         if (product.qrStatus === "blocked") {
             scanResult = "Blocked";
+            message = 'This product has been blocked.';
+        } else if (isExpired) {
+            scanResult = "Expired";
+            message = `This product is expired. Expired on ${expiry.toDateString()}.`;
         } else if (product.qrStatus === "active") {
             scanResult = "Valid";
         } else if (product.qrStatus === "used") {
@@ -85,6 +105,7 @@ async function getProductByQRCode(req, res) {
         } else {
             // generated or unknown => not yet activated
             scanResult = "Invalid";
+            message = 'This product is not active yet. Please ask the vendor/admin to activate it.';
         }
 
         // Continuous monitoring:
@@ -92,7 +113,7 @@ async function getProductByQRCode(req, res) {
         // or continues being scanned too much after already used, consider it compromised.
         const WINDOW_MS = 2 * 60 * 1000;
         const recentScans = await AuditLog.find({
-            qrCode,
+            qrCode: normalizedQr,
             scannedAt: { $gte: new Date(Date.now() - WINDOW_MS) }
         }).select('ipAddress location scanResult scannedAt');
 
@@ -115,39 +136,79 @@ async function getProductByQRCode(req, res) {
 
         const compromised = (scanResult !== "Blocked") && (isRapidRepeat || isMultiIp || isMultiLocation || isRepeatedAfterUsed);
 
+        // IMPORTANT:
+        // Do NOT call product.save() here.
+        // Some older/partial product documents in the DB may fail full schema validation,
+        // which would break QR verification with "Product validation failed".
+        // Instead, persist only the fields we changed via updateOne (no full validation).
+
+        const setUpdate = {};
+        const incUpdate = {};
+
         if (compromised) {
-            product.isSuspicious = true;
-            product.qrStatus = "blocked";
-            scanResult = "Blocked";
+            setUpdate.isSuspicious = true;
+            setUpdate.qrStatus = 'blocked';
+            scanResult = 'Blocked';
         } else {
-            // If it exists and is active => allow the scan, mark it used, and show the product.
-            if (product.qrStatus === "active") {
-                product.qrStatus = "used";
+            // If expired, do not transition active->used.
+            if (!isExpired && product.qrStatus === 'active') {
+                setUpdate.qrStatus = 'used';
             }
 
-            // Allow normal repeated scans but show status as AlreadyUsed
-            if (scanResult === "Valid" || scanResult === "AlreadyUsed") {
-                product.verificationCount += 1;
-                product.lastVerifiedAt = new Date();
+            if (scanResult === 'Valid' || scanResult === 'AlreadyUsed' || scanResult === 'Expired') {
+                incUpdate.verificationCount = 1;
+                setUpdate.lastVerifiedAt = now;
             }
         }
 
-        await product.save();
+        if (Object.keys(setUpdate).length || Object.keys(incUpdate).length) {
+            const updateDoc = {};
+            if (Object.keys(setUpdate).length) updateDoc.$set = setUpdate;
+            if (Object.keys(incUpdate).length) updateDoc.$inc = incUpdate;
 
-        await AuditLog.create({
-            productId: product._id,
-            qrCode,
-            vendorId: product.vendorId,
-            scanResult,
-            ipAddress: ip,
-            location,
-            userAgent: req.headers["user-agent"]
-        });
+            await productModel.updateOne(
+                { _id: product._id },
+                updateDoc,
+                { runValidators: false }
+            );
+        }
+
+        // Best-effort audit logging (should not break verification UI)
+        if (product?._id && product?.vendorId) {
+            try {
+                await AuditLog.create({
+                    productId: product._id,
+                    qrCode: normalizedQr,
+                    vendorId: product.vendorId,
+                    scanResult,
+                    ipAddress: ip,
+                    location,
+                    userAgent: req.headers["user-agent"]
+                });
+            } catch (auditErr) {
+                console.warn('Audit log write failed:', auditErr?.message || auditErr);
+            }
+        } else {
+            console.warn('Skipping audit log: missing productId/vendorId for qr', normalizedQr);
+        }
+
+        // Build response product using the in-memory product + our updates
+        const productObj = typeof product?.toObject === 'function' ? product.toObject() : product;
+        const responseProduct = {
+            ...(productObj || {}),
+            ...(Object.keys(setUpdate).length ? setUpdate : {}),
+        };
+        if (incUpdate.verificationCount) {
+            const current = Number(responseProduct.verificationCount || 0);
+            responseProduct.verificationCount = current + incUpdate.verificationCount;
+        }
 
         return res.status(200).json({
             status: scanResult,
-            suspicious: Boolean(product.isSuspicious),
-            product
+            message,
+            expired: Boolean(isExpired),
+            suspicious: Boolean(responseProduct.isSuspicious),
+            product: responseProduct
         });
 
     } catch (error) {
@@ -242,6 +303,12 @@ async function updateProduct(req, res) {
             return res.status(403).json({ message: 'Unauthorized to update this product' });
         }
 
+        // Expiry date is immutable after creation.
+        // We reject any update attempt that includes expiryDate to guarantee immutability.
+        if (expiryDate !== undefined) {
+            return res.status(400).json({ message: 'Expiry date cannot be updated.' });
+        }
+
         // Update allowed fields only
         product.productName = productName ?? product.productName;
         product.description = description ?? product.description;
@@ -249,7 +316,7 @@ async function updateProduct(req, res) {
         product.category = category ?? product.category;
         product.stock = stock ?? product.stock;
         product.manufactureDate = manufactureDate ?? product.manufactureDate;
-        product.expiryDate = expiryDate ?? product.expiryDate;
+        // product.expiryDate is intentionally not updatable.
 
         await product.save();
         res.status(200).json({ message: 'Product updated successfully', product });
@@ -346,7 +413,8 @@ async function regenerateProductQr(req, res) {
 
             product.qrCode = newQrCode;
             product.qrImageUrl = newQrImageUrl;
-            product.qrStatus = 'generated';
+            // After regenerating, keep the product scannable immediately.
+            product.qrStatus = 'active';
             product.isSuspicious = false;
             product.verificationCount = 0;
             product.lastVerifiedAt = undefined;

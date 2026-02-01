@@ -21,6 +21,7 @@ const RegisterPage = () => {
       setSubmitting(true)
       const response = await apiClient.post('/auth/register', data);
       console.log('Registration successful:', response.data);
+      const role = response?.data?.user?.role || 'vendor'
       const vendorName =
         response?.data?.vendorName ||
         response?.data?.user?.vendorName ||
@@ -31,6 +32,10 @@ const RegisterPage = () => {
 
       if (vendorName) {
         window.localStorage.setItem('vendorName', String(vendorName));
+      }
+
+      if (role) {
+        window.localStorage.setItem('role', String(role))
       }
 
       toast.success('Registration successful')

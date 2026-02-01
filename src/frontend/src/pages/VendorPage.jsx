@@ -127,11 +127,11 @@ const VendorPage = () => {
   }, [products])
 
   const vendorProducts = useMemo(() => {
-    if (!vendorName) return normalizedProducts
-    return normalizedProducts.filter((p) =>
-      String(p.vendorName || '').toLowerCase() === String(vendorName).toLowerCase()
-    )
-  }, [normalizedProducts, vendorName])
+    // Backend already scopes /products to the authenticated vendorId.
+    // Filtering again by vendorName can hide products when localStorage contains a stale name
+    // (e.g. after switching accounts), so we rely on backend scoping instead.
+    return normalizedProducts
+  }, [normalizedProducts])
 
   const counts = useMemo(() => {
     const base = { all: vendorProducts.length, generated: 0, active: 0, used: 0, blocked: 0 }
@@ -217,6 +217,21 @@ const VendorPage = () => {
       toast.success('Product deleted')
     } catch (e) {
       const message = e?.response?.data?.message || e?.message || 'Failed to delete product.'
+      toast.error(message)
+    }
+  }
+
+  const onActivate = async (product) => {
+    const id = product?.id ?? product?._id
+    if (!id) return
+    setOpenActionsForId(null)
+
+    try {
+      await apiClient.post(`${PRODUCT_BASE}/activate/${encodeURIComponent(id)}`)
+      toast.success('Product activated')
+      await fetchProducts()
+    } catch (e) {
+      const message = e?.response?.data?.message || e?.message || 'Failed to activate product.'
       toast.error(message)
     }
   }
@@ -365,6 +380,19 @@ const VendorPage = () => {
                             >
                               View details
                             </button>
+
+                            {p.qrStatus === STATUS.GENERATED ? (
+                              <button
+                                onClick={() => onActivate(p)}
+                                className={
+                                  isBlocked
+                                    ? 'w-full text-left px-4 py-3 text-sm text-slate-50 hover:bg-slate-800'
+                                    : 'w-full text-left px-4 py-3 text-sm text-slate-900 hover:bg-slate-50'
+                                }
+                              >
+                                Activate
+                              </button>
+                            ) : null}
                             <button
                               onClick={() => startEdit(p)}
                               className={
