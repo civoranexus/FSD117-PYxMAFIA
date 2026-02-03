@@ -29,7 +29,7 @@ const confirmRegenerate = () => {
   return new Promise((resolve) => {
     toast.custom(
       (t) => (
-        <div className="w-[360px] rounded-2xl bg-white ring-1 ring-slate-200 shadow-xl p-4">
+        <div className="w-[360px] max-w-[92vw] rounded-2xl bg-white ring-1 ring-slate-200 shadow-xl p-4">
           <div className="text-sm font-semibold text-slate-900">Regenerate QR Code?</div>
           <div className="mt-2 text-sm text-slate-700">
             Regenerating will make <span className="font-semibold">all previous QR codes</span> for this product invalid.
@@ -313,8 +313,8 @@ const VendorProductDetailsPage = () => {
                   <p className="text-xs text-slate-600">Total: <span className="font-semibold">{auditLogs.length}</span></p>
                 </div>
 
-                <div className="mt-4 overflow-hidden rounded-2xl ring-1 ring-slate-200 bg-white">
-                  <table className="w-full text-sm">
+                <div className="mt-4 overflow-x-auto rounded-2xl ring-1 ring-slate-200 bg-white">
+                  <table className="w-full min-w-[760px] text-sm">
                     <thead className="bg-slate-50 text-slate-600">
                       <tr>
                         <th className="text-left font-semibold p-3">Time</th>

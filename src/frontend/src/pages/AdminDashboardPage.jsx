@@ -42,7 +42,7 @@ const ConfirmVendorBlockToast = ({ vendorName, onCancel, onConfirm }) => {
   const [reason, setReason] = useState('')
 
   return (
-    <div className="w-[380px] rounded-2xl bg-white ring-1 ring-slate-200 shadow-xl p-4">
+    <div className="w-[380px] max-w-[92vw] rounded-2xl bg-white ring-1 ring-slate-200 shadow-xl p-4">
       <div className="text-sm font-semibold text-slate-900">Block vendor?</div>
       <div className="mt-2 text-sm text-slate-700">
         Vendor: <span className="font-semibold">{vendorName || '—'}</span>
@@ -78,6 +78,118 @@ const ConfirmVendorBlockToast = ({ vendorName, onCancel, onConfirm }) => {
           className="rounded-xl bg-red-600 text-white px-3 py-2 text-xs font-semibold hover:bg-red-700"
         >
           Block vendor
+        </button>
+      </div>
+    </div>
+  )
+}
+
+const VendorTerminateToast = ({ vendor, products, onCancel, onConfirm }) => {
+  const [blockBeforeDelete, setBlockBeforeDelete] = useState(true)
+  const [reason, setReason] = useState('')
+
+  const list = Array.isArray(products) ? products : []
+  const maxShow = 20
+  const shown = list.slice(0, maxShow)
+  const remaining = Math.max(0, list.length - shown.length)
+
+  const counts = shown.reduce(
+    (acc, p) => {
+      const status = p?.qrStatus || 'unknown'
+      acc.total += 1
+      if (p?.isSuspicious) acc.suspicious += 1
+      if (status === 'blocked') acc.blocked += 1
+      if (status === 'active') acc.active += 1
+      if (status === 'used') acc.used += 1
+      if (status === 'generated') acc.generated += 1
+      return acc
+    },
+    { total: 0, suspicious: 0, blocked: 0, active: 0, used: 0, generated: 0 }
+  )
+
+  return (
+    <div className="w-[520px] max-w-[92vw] rounded-2xl bg-white ring-1 ring-slate-200 shadow-xl p-4">
+      <div className="text-sm font-semibold text-slate-900">Terminate vendor account?</div>
+      <div className="mt-2 text-sm text-slate-700">
+        Vendor: <span className="font-semibold">{vendor?.name || '—'}</span>
+        <span className="mx-2">•</span>
+        <span className="text-slate-600">{vendor?.email || '—'}</span>
+      </div>
+      <div className="mt-2 text-xs text-slate-600">
+        Review the vendor’s products before deleting their account.
+      </div>
+
+      <div className="mt-4 rounded-xl bg-slate-50 ring-1 ring-slate-200 p-3">
+        <div className="text-xs font-semibold text-slate-700">
+          Products found: <span className="text-slate-900">{list.length}</span>
+        </div>
+        <div className="mt-1 text-[11px] text-slate-600">
+          In preview: total {counts.total}, suspicious {counts.suspicious}, blocked {counts.blocked}, active {counts.active}
+        </div>
+
+        <div className="mt-3 max-h-56 overflow-auto rounded-xl bg-white ring-1 ring-slate-200">
+          {shown.length === 0 ? (
+            <div className="p-3 text-sm text-slate-600">No products for this vendor.</div>
+          ) : (
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 text-slate-600">
+                <tr>
+                  <th className="text-left font-semibold p-2">Product</th>
+                  <th className="text-left font-semibold p-2">Status</th>
+                  <th className="text-left font-semibold p-2">Flags</th>
+                </tr>
+              </thead>
+              <tbody>
+                {shown.map((p) => (
+                  <tr key={p?._id} className="border-t border-slate-100">
+                    <td className="p-2 text-slate-900">
+                      <div className="font-semibold">{p?.productName || '—'}</div>
+                      <div className="mt-0.5 text-xs text-slate-500">Batch: {p?.batchId || '—'}</div>
+                    </td>
+                    <td className="p-2">
+                      <Badge tone={p?.isSuspicious || p?.qrStatus === 'blocked' ? 'red' : p?.qrStatus === 'active' ? 'emerald' : 'slate'}>
+                        {p?.qrStatus || '—'}
+                      </Badge>
+                    </td>
+                    <td className="p-2">
+                      {p?.isSuspicious ? <Badge tone="red">Suspicious</Badge> : <span className="text-xs text-slate-500">—</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+        {remaining > 0 ? <div className="mt-2 text-xs text-slate-600">And {remaining} more…</div> : null}
+      </div>
+
+      <label className="mt-4 flex items-center gap-2 text-sm text-slate-800">
+        <input type="checkbox" checked={blockBeforeDelete} onChange={(e) => setBlockBeforeDelete(e.target.checked)} />
+        Block vendor + invalidate all products before deletion (recommended)
+      </label>
+
+      <div className="mt-3">
+        <label className="block text-xs font-semibold text-slate-700">Reason (optional)</label>
+        <input
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder="e.g. Terminated after repeated suspicious activity"
+          className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-900/20"
+        />
+      </div>
+
+      <div className="mt-4 flex justify-end gap-2">
+        <button
+          onClick={onCancel}
+          className="rounded-xl bg-slate-100 text-slate-900 px-3 py-2 text-xs font-semibold hover:bg-slate-200"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={() => onConfirm({ blockBeforeDelete, reason })}
+          className="rounded-xl bg-red-600 text-white px-3 py-2 text-xs font-semibold hover:bg-red-700"
+        >
+          Terminate
         </button>
       </div>
     </div>
@@ -125,6 +237,12 @@ const AdminDashboardPage = () => {
       params: { suspicious: true },
     })
     setProducts(data?.products || [])
+  }
+
+  const loadVendorProducts = async (vendorId) => {
+    if (!vendorId) return []
+    const { data } = await apiClient.get(`${ADMIN_BASE}/products`, { params: { vendorId } })
+    return Array.isArray(data?.products) ? data.products : []
   }
 
   const loadAuditLogs = async () => {
@@ -258,7 +376,7 @@ const AdminDashboardPage = () => {
     return new Promise((resolve) => {
       toast.custom(
         (t) => (
-          <div className="w-[360px] rounded-2xl bg-white ring-1 ring-slate-200 shadow-xl p-4">
+          <div className="w-[360px] max-w-[92vw] rounded-2xl bg-white ring-1 ring-slate-200 shadow-xl p-4">
             <div className="text-sm font-semibold text-slate-900">{title}</div>
             <div className="mt-2 text-sm text-slate-700">{message}</div>
             <div className="mt-4 flex justify-end gap-2">
@@ -307,6 +425,62 @@ const AdminDashboardPage = () => {
         { duration: Infinity }
       )
     })
+  }
+
+  const confirmVendorTerminate = (vendor, products) => {
+    return new Promise((resolve) => {
+      toast.custom(
+        (t) => (
+          <VendorTerminateToast
+            vendor={vendor}
+            products={products}
+            onCancel={() => {
+              toast.dismiss(t.id)
+              resolve(null)
+            }}
+            onConfirm={(payload) => {
+              toast.dismiss(t.id)
+              resolve(payload)
+            }}
+          />
+        ),
+        { duration: Infinity }
+      )
+    })
+  }
+
+  const terminateVendor = async (vendor) => {
+    if (!vendor?._id) return
+    setVendorMutatingId(vendor._id)
+    try {
+      const products = await loadVendorProducts(vendor._id)
+      const decision = await confirmVendorTerminate(vendor, products)
+      if (!decision) return
+
+      // Safety step: block vendor + optionally invalidate products before deletion
+      if (decision.blockBeforeDelete) {
+        await apiClient.patch(`${ADMIN_BASE}/vendors/${encodeURIComponent(vendor._id)}/block`, {
+          isBlocked: true,
+          blockProducts: true,
+          reason: decision?.reason || 'Terminated',
+        })
+      }
+
+      const ok = await confirmToast(
+        'Delete vendor account?',
+        'This permanently deletes the vendor user record. This action cannot be undone.',
+        'Delete'
+      )
+      if (!ok) return
+
+      await apiClient.delete(`${ADMIN_BASE}/users/${encodeURIComponent(vendor._id)}`)
+      toast.success('Vendor account deleted')
+      await Promise.all([loadStats(), loadVendors(vendorSearch), loadSuspiciousProducts(), loadAuditLogs()])
+    } catch (e) {
+      toast.error(getApiErrorMessage(e, 'Failed to terminate vendor.'))
+    } finally {
+      setVendorMutatingId(null)
+    }
   }
 
   const setVendorBlocked = async (vendor, nextBlocked) => {
@@ -526,8 +700,8 @@ const AdminDashboardPage = () => {
                   />
                 </div>
               </div>
-              <div className="mt-4 overflow-hidden rounded-2xl ring-1 ring-slate-200 bg-white">
-                <table className="w-full text-sm">
+              <div className="mt-4 overflow-x-auto rounded-2xl ring-1 ring-slate-200 bg-white">
+                <table className="w-full min-w-[720px] text-sm">
                   <thead className="bg-slate-50 text-slate-600">
                     <tr>
                       <th className="text-left font-semibold p-3">Name</th>
@@ -547,23 +721,33 @@ const AdminDashboardPage = () => {
                         </td>
                         <td className="p-3 text-slate-600">{formatDateTime(v?.createdAt)}</td>
                         <td className="p-3">
-                          {v?.isBlocked ? (
+                          <div className="flex flex-wrap items-center gap-2">
+                            {v?.isBlocked ? (
+                              <button
+                                onClick={() => setVendorBlocked(v, false)}
+                                disabled={vendorMutatingId === v._id}
+                                className="rounded-xl bg-emerald-600 text-white px-3 py-2 text-xs font-semibold hover:bg-emerald-700 disabled:opacity-60"
+                              >
+                                {vendorMutatingId === v._id ? 'Working…' : 'Unblock'}
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => setVendorBlocked(v, true)}
+                                disabled={vendorMutatingId === v._id}
+                                className="rounded-xl bg-red-600 text-white px-3 py-2 text-xs font-semibold hover:bg-red-700 disabled:opacity-60"
+                              >
+                                {vendorMutatingId === v._id ? 'Working…' : 'Block'}
+                              </button>
+                            )}
+
                             <button
-                              onClick={() => setVendorBlocked(v, false)}
+                              onClick={() => terminateVendor(v)}
                               disabled={vendorMutatingId === v._id}
-                              className="rounded-xl bg-emerald-600 text-white px-3 py-2 text-xs font-semibold hover:bg-emerald-700 disabled:opacity-60"
+                              className="rounded-xl bg-slate-900 text-white px-3 py-2 text-xs font-semibold hover:bg-slate-800 disabled:opacity-60"
                             >
-                              {vendorMutatingId === v._id ? 'Working…' : 'Unblock'}
+                              {vendorMutatingId === v._id ? 'Working…' : 'Terminate'}
                             </button>
-                          ) : (
-                            <button
-                              onClick={() => setVendorBlocked(v, true)}
-                              disabled={vendorMutatingId === v._id}
-                              className="rounded-xl bg-red-600 text-white px-3 py-2 text-xs font-semibold hover:bg-red-700 disabled:opacity-60"
-                            >
-                              {vendorMutatingId === v._id ? 'Working…' : 'Block'}
-                            </button>
-                          )}
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -576,8 +760,8 @@ const AdminDashboardPage = () => {
           {activeTab === 'logs' ? (
             <section className="mt-6">
               <h3 className="text-sm font-semibold text-slate-900">Recent audit logs</h3>
-              <div className="mt-4 overflow-hidden rounded-2xl ring-1 ring-slate-200 bg-white">
-                <table className="w-full text-sm">
+              <div className="mt-4 overflow-x-auto rounded-2xl ring-1 ring-slate-200 bg-white">
+                <table className="w-full min-w-[820px] text-sm">
                   <thead className="bg-slate-50 text-slate-600">
                     <tr>
                       <th className="text-left font-semibold p-3">Time</th>
@@ -653,7 +837,7 @@ const AdminDashboardPage = () => {
 
               <div className="mt-4 grid grid-cols-1 lg:grid-cols-3 gap-4">
                 <div className="lg:col-span-2">
-                  <div className="bg-white rounded-2xl shadow-sm ring-1 ring-slate-200 overflow-hidden">
+                  <div className="bg-white rounded-2xl shadow-sm ring-1 ring-slate-200 overflow-x-auto">
                     <div className="flex items-center justify-between p-3 border-b border-slate-100">
                       <div className="text-xs text-slate-600">
                         Page <span className="font-semibold">{contactPage}</span> of <span className="font-semibold">{contactTotalPages}</span>
@@ -678,7 +862,7 @@ const AdminDashboardPage = () => {
                       </div>
                     </div>
 
-                    <table className="w-full text-sm">
+                    <table className="w-full min-w-[860px] text-sm">
                       <thead className="bg-slate-50 text-slate-600">
                         <tr>
                           <th className="text-left font-semibold p-3">Subject</th>

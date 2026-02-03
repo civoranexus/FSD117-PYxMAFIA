@@ -64,7 +64,7 @@ const confirmToast = (message) => {
   return new Promise((resolve) => {
     toast.custom(
       (t) => (
-        <div className="w-[320px] rounded-2xl bg-white ring-1 ring-slate-200 shadow-xl p-4">
+        <div className="w-[320px] max-w-[92vw] rounded-2xl bg-white ring-1 ring-slate-200 shadow-xl p-4">
           <div className="text-sm font-semibold text-slate-900">Confirm</div>
           <div className="mt-1 text-sm text-slate-600">{message}</div>
           <div className="mt-3 flex justify-end gap-2">

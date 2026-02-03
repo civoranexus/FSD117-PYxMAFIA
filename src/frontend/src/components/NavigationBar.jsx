@@ -7,6 +7,7 @@ import toast from 'react-hot-toast'
 const NavigationBar = () => {
   const navigate = useNavigate()
   const [loggingOut, setLoggingOut] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
 
   const buttonClass =
     'inline-flex items-center justify-center rounded-xl bg-black px-4 py-2 text-sm font-semibold text-white shadow-sm motion-safe:transition motion-safe:duration-200 hover:bg-slate-900 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-black/20'
@@ -33,7 +34,7 @@ const NavigationBar = () => {
 
   return (
     <header className="sticky top-0 z-50 bg-white/90 backdrop-blur border-b border-slate-200 motion-safe:transition-shadow motion-safe:duration-200">
-      <div className="px-4 py-3 flex items-center justify-between">
+      <div className="px-4 py-3 flex items-center justify-between gap-2">
         <div className="flex items-center gap-3">
           <Link to="/" className="text-lg font-semibold text-slate-900">
             VendorVerify
@@ -48,7 +49,56 @@ const NavigationBar = () => {
           </nav>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap justify-end">
+          {/* Mobile menu */}
+          <div className="relative sm:hidden">
+            <button
+              type="button"
+              onClick={() => setMenuOpen((v) => !v)}
+              className="rounded-xl bg-slate-100 text-slate-900 px-3 py-2 text-sm font-semibold hover:bg-slate-200"
+              aria-expanded={menuOpen}
+              aria-label="Open menu"
+            >
+              Menu
+            </button>
+
+            {menuOpen ? (
+              <div className="absolute right-0 mt-2 w-52 max-w-[80vw] rounded-2xl bg-white ring-1 ring-slate-200 shadow-xl overflow-hidden">
+                <Link
+                  to="/about"
+                  onClick={() => setMenuOpen(false)}
+                  className="block px-4 py-3 text-sm text-slate-900 hover:bg-slate-50"
+                >
+                  About
+                </Link>
+                <Link
+                  to="/contact"
+                  onClick={() => setMenuOpen(false)}
+                  className="block px-4 py-3 text-sm text-slate-900 hover:bg-slate-50"
+                >
+                  Contact
+                </Link>
+                {role === 'admin' ? (
+                  <Link
+                    to="/admin-dashboard"
+                    onClick={() => setMenuOpen(false)}
+                    className="block px-4 py-3 text-sm text-slate-900 hover:bg-slate-50"
+                  >
+                    Admin Dashboard
+                  </Link>
+                ) : role === 'vendor' ? (
+                  <Link
+                    to="/vendor-dashboard"
+                    onClick={() => setMenuOpen(false)}
+                    className="block px-4 py-3 text-sm text-slate-900 hover:bg-slate-50"
+                  >
+                    Vendor Dashboard
+                  </Link>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+
           {role === 'admin' ? (
             <Link to="/admin-dashboard" className="rounded-xl bg-slate-100 text-slate-900 px-4 py-2 text-sm font-semibold hover:bg-slate-200">
               Admin
