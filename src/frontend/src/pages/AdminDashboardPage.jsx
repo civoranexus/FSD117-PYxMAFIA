@@ -208,6 +208,11 @@ const AdminDashboardPage = () => {
   const [products, setProducts] = useState([])
   const [auditLogs, setAuditLogs] = useState([])
 
+  const [fakeReports, setFakeReports] = useState([])
+  const [fakeReportTotal, setFakeReportTotal] = useState(0)
+  const [fakeReportNewTotal, setFakeReportNewTotal] = useState(0)
+  const [reportStatus, setReportStatus] = useState('new')
+
   const [contactMessages, setContactMessages] = useState([])
   const [contactTotal, setContactTotal] = useState(0)
   const [contactPage, setContactPage] = useState(1)
@@ -250,6 +255,24 @@ const AdminDashboardPage = () => {
       params: { limit: 50 },
     })
     setAuditLogs(data?.logs || [])
+  }
+
+  const loadFakeReports = async ({ status } = {}) => {
+    const params = {
+      limit: 50,
+    }
+
+    const s = typeof status === 'string' ? status : reportStatus
+    if (s && s !== 'all') params.status = s
+
+    const { data } = await apiClient.get(`${ADMIN_BASE}/fake-reports`, { params })
+    setFakeReports(Array.isArray(data?.reports) ? data.reports : [])
+    setFakeReportTotal(typeof data?.total === 'number' ? data.total : 0)
+  }
+
+  const loadFakeReportNewCount = async () => {
+    const { data } = await apiClient.get(`${ADMIN_BASE}/fake-reports`, { params: { status: 'new', limit: 1 } })
+    setFakeReportNewTotal(typeof data?.total === 'number' ? data.total : 0)
   }
 
   const loadContactMessages = async ({ page, search, status } = {}) => {
@@ -306,6 +329,8 @@ const AdminDashboardPage = () => {
         loadVendors(vendorSearch),
         loadSuspiciousProducts(),
         loadAuditLogs(),
+        loadFakeReports({ status: reportStatus }),
+        loadFakeReportNewCount(),
         loadContactMessages({ page: contactPage, search: contactSearch, status: contactStatus }),
       ])
     } catch (e) {
@@ -353,14 +378,43 @@ const AdminDashboardPage = () => {
     }
   }, [contactSearch, contactStatus, contactPage, activeTab])
 
+  useEffect(() => {
+    if (activeTab !== 'reports') return
+
+    let cancelled = false
+    const t = setTimeout(() => {
+      if (cancelled) return
+      loadFakeReports({ status: reportStatus }).catch((e) => {
+        toast.error(getApiErrorMessage(e, 'Failed to load reports.'))
+      })
+    }, 250)
+
+    return () => {
+      cancelled = true
+      clearTimeout(t)
+    }
+  }, [reportStatus, activeTab])
+
   const counts = useMemo(() => {
     return {
       suspicious: Array.isArray(products) ? products.length : 0,
       vendors: Array.isArray(vendors) ? vendors.length : 0,
       logs: Array.isArray(auditLogs) ? auditLogs.length : 0,
+      reports: typeof fakeReportNewTotal === 'number' ? fakeReportNewTotal : 0,
       contacts: typeof contactTotal === 'number' ? contactTotal : 0,
     }
-  }, [products, vendors, auditLogs, contactTotal])
+  }, [products, vendors, auditLogs, fakeReportNewTotal, contactTotal])
+
+  const updateFakeReport = async (id, payload) => {
+    if (!id) return
+    try {
+      await apiClient.patch(`${ADMIN_BASE}/fake-reports/${encodeURIComponent(id)}`, payload)
+      toast.success('Updated')
+      await Promise.all([loadFakeReports({ status: reportStatus }), loadFakeReportNewCount(), loadStats(), loadSuspiciousProducts()])
+    } catch (e) {
+      toast.error(getApiErrorMessage(e, 'Failed to update report.'))
+    }
+  }
 
   const setProductReview = async (id, payload) => {
     try {
@@ -539,6 +593,7 @@ const AdminDashboardPage = () => {
   const tabs = [
     { key: 'suspicious', label: 'Suspicious Products', count: counts.suspicious },
     { key: 'vendors', label: 'Vendors', count: counts.vendors },
+    { key: 'reports', label: 'Fake Reports', count: counts.reports },
     { key: 'logs', label: 'Audit Logs', count: counts.logs },
     { key: 'contacts', label: 'Contact Queries', count: counts.contacts },
   ]
@@ -751,6 +806,128 @@ const AdminDashboardPage = () => {
                         </td>
                       </tr>
                     ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          ) : null}
+
+          {activeTab === 'reports' ? (
+            <section className="mt-6">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-900">Fake reports</h3>
+                  <p className="mt-1 text-xs text-slate-600">User-submitted reports for review and moderation actions.</p>
+                </div>
+
+                <div className="w-full sm:w-52">
+                  <label className="block text-xs font-semibold text-slate-700">Status</label>
+                  <select
+                    value={reportStatus}
+                    onChange={(e) => setReportStatus(e.target.value)}
+                    className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-900/20"
+                  >
+                    <option value="new">New</option>
+                    <option value="reviewed">Reviewed</option>
+                    <option value="dismissed">Dismissed</option>
+                    <option value="actioned">Actioned</option>
+                    <option value="all">All</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="mt-4 bg-white rounded-2xl shadow-sm ring-1 ring-slate-200 overflow-x-auto">
+                <div className="flex items-center justify-between p-3 border-b border-slate-100">
+                  <div className="text-xs text-slate-600">
+                    Showing <span className="font-semibold">{Array.isArray(fakeReports) ? fakeReports.length : 0}</span> reports
+                    <span className="mx-2">•</span>
+                    Total <span className="font-semibold">{fakeReportTotal}</span>
+                  </div>
+                </div>
+
+                <table className="w-full min-w-[980px] text-sm">
+                  <thead className="bg-slate-50 text-slate-600">
+                    <tr>
+                      <th className="text-left font-semibold p-3">Time</th>
+                      <th className="text-left font-semibold p-3">Product</th>
+                      <th className="text-left font-semibold p-3">Vendor</th>
+                      <th className="text-left font-semibold p-3">Reason</th>
+                      <th className="text-left font-semibold p-3">Status</th>
+                      <th className="text-left font-semibold p-3">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {fakeReports.map((r) => (
+                      <tr key={r._id} className="border-t border-slate-100">
+                        <td className="p-3 text-slate-600">{formatDateTime(r?.createdAt)}</td>
+                        <td className="p-3 text-slate-900">
+                          <div className="font-semibold">{r?.productId?.productName || '—'}</div>
+                          <div className="mt-0.5 text-xs text-slate-500">
+                            {r?.productId?.qrStatus ? `QR: ${r.productId.qrStatus}` : null}
+                            {r?.productId?.isSuspicious ? <span className="ml-2">• flagged</span> : null}
+                          </div>
+                        </td>
+                        <td className="p-3 text-slate-700">{r?.vendorId?.name || r?.productId?.vendorName || '—'}</td>
+                        <td className="p-3 text-slate-700">
+                          <div className="font-semibold">{r?.reason || '—'}</div>
+                          {r?.details ? <div className="mt-1 text-xs text-slate-500">{String(r.details).slice(0, 140)}</div> : null}
+                          {r?.reporterEmail ? <div className="mt-1 text-xs text-slate-500">By: {r.reporterEmail}</div> : null}
+                        </td>
+                        <td className="p-3">
+                          <Badge tone={r?.status === 'new' ? 'amber' : r?.status === 'actioned' ? 'red' : r?.status === 'reviewed' ? 'sky' : 'slate'}>
+                            {r?.status || '—'}
+                          </Badge>
+                        </td>
+                        <td className="p-3">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <button
+                              onClick={() => updateFakeReport(r._id, { status: 'reviewed' })}
+                              className="rounded-xl bg-slate-100 text-slate-900 px-3 py-2 text-xs font-semibold hover:bg-slate-200"
+                            >
+                              Mark reviewed
+                            </button>
+                            <button
+                              onClick={() => updateFakeReport(r._id, { status: 'dismissed' })}
+                              className="rounded-xl bg-slate-100 text-slate-900 px-3 py-2 text-xs font-semibold hover:bg-slate-200"
+                            >
+                              Dismiss
+                            </button>
+
+                            <button
+                              onClick={async () => {
+                                const pid = r?.productId?._id
+                                if (!pid) return
+                                await setProductReview(pid, { isSuspicious: true, qrStatus: 'blocked' })
+                                await updateFakeReport(r._id, { status: 'actioned' })
+                              }}
+                              className="rounded-xl bg-red-600 text-white px-3 py-2 text-xs font-semibold hover:bg-red-700"
+                            >
+                              Block product
+                            </button>
+
+                            <button
+                              onClick={async () => {
+                                const v = r?.vendorId
+                                if (!v?._id) return
+                                await setVendorBlocked(v, true)
+                                await updateFakeReport(r._id, { status: 'actioned' })
+                              }}
+                              className="rounded-xl bg-red-600 text-white px-3 py-2 text-xs font-semibold hover:bg-red-700"
+                            >
+                              Block vendor
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+
+                    {!loading && fakeReports.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="p-6 text-sm text-slate-600">
+                          No reports found.
+                        </td>
+                      </tr>
+                    ) : null}
                   </tbody>
                 </table>
               </div>

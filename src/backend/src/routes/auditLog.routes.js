@@ -1,5 +1,6 @@
 import {Router} from "express";
 import auditController from "../controllers/auditLog.controllers.js";
+import fakeReportController from "../controllers/fakeReport.controllers.js";
 import {authMiddleware,isVendor,isAdmin} from "../middlewares/auth.middleware.js";
 
 const router = Router();
@@ -17,5 +18,8 @@ router.get("/product/:productId", authMiddleware, auditController.getProductAudi
 
 // Public: limited audit logs for product details page
 router.get("/public/product/:productId", auditController.getPublicProductAuditLogs);
+
+// Public: report a product as fake/suspicious (no auth)
+router.post("/public/product/:productId/report-fake", fakeReportController.createPublicFakeReport);
 
 export default router;

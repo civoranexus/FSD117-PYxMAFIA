@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import adminController from '../controllers/admin.controllers.js';
+import fakeReportController from '../controllers/fakeReport.controllers.js';
 import { authMiddleware, isAdmin } from '../middlewares/auth.middleware.js';
 
 const router = Router();
@@ -28,6 +29,10 @@ router.patch('/products/:id/review', adminController.reviewProduct);
 
 // Audit logs
 router.get('/audit-logs', adminController.getAuditLogs);
+
+// Fake reports (admin)
+router.get('/fake-reports', fakeReportController.listFakeReports);
+router.patch('/fake-reports/:id', fakeReportController.updateFakeReport);
 
 // Contact-us queries (admin)
 router.get('/contact-messages', adminController.getContactMessages);
