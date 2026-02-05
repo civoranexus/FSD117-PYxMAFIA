@@ -1,10 +1,14 @@
-# FSD117-PYxMAFIA (Full Stack)
+# Project Workspace (src)
 
-Full-stack app with:
-- **Backend**: Node.js + Express + MongoDB (Mongoose)
-- **Frontend**: React + Vite + Tailwind + Axios
+This `src/` folder contains the two main applications:
 
-A small **warmup endpoint** is included to reduce “cold start” downtime in production hosting. The frontend calls it on initial load and shows a `react-hot-toast` “loading” message until the API responds.
+- `backend/` — Node.js + Express + MongoDB (Mongoose)
+- `frontend/` — React + Vite + Tailwind + Axios
+
+For detailed setup (including env vars), see:
+
+- `backend/README.md`
+- `frontend/README.md`
 
 ## Folder Structure
 
@@ -71,156 +75,25 @@ frontend/
       loadingStore.js
 ```
 
-## Requirements
+## Folder Structure
 
-- Node.js 18+ (recommended)
-- MongoDB connection string
-- Cloudinary account (optional; used for QR uploads)
-
-## Setup
-
-### 1) Backend env
-
-Create `backend/.env`:
-
-```bash
-PORT=3000
-MONGO_URI=mongodb+srv://...
-jwt_secret=your_super_secret
-
-# Frontend origin (for cookies/CORS). In production set this to your real domain.
-CORS_ORIGIN=http://localhost:5173
-
-# Cloudinary (QR images are uploaded here)
-CLOUDINARY_CLOUD_NAME=...
-CLOUDINARY_API_KEY=...
-CLOUDINARY_API_SECRET=...
-
-# Optional: public backend base URL (used to build absolute URLs when saving QR images locally)
-PUBLIC_BASE_URL=http://localhost:3000
 ```
-
-### 2) Install deps
-
-Recommended (installs **backend + frontend** deps from repo root):
-
-```bash
-npm install
+backend/
+  server.js
+  package.json
+  .env.example
+  src/
+    app.js
+    controllers/
+    routes/
+    models/
+    ...
+frontend/
+  package.json
+  vite.config.js
+  .env.example
+  src/
+    pages/
+    components/
+    ...
 ```
-
-This runs a root `postinstall` script that:
-- installs `backend/node_modules`
-- installs `frontend/node_modules`
-- builds the frontend into `frontend/dist`
-
-Alternative (manual):
-
-Backend:
-```bash
-cd backend
-npm install
-```
-
-Frontend:
-```bash
-cd ../frontend
-npm install
-```
-
-## Run Locally
-
-Recommended (dev mode, two servers):
-
-```bash
-npm run dev
-```
-
-Manual (two terminals):
-
-Terminal 1 (backend):
-```bash
-cd backend
-npm run dev
-```
-
-Terminal 2 (frontend):
-```bash
-cd frontend
-npm run dev
-```
-
-- Backend: `http://localhost:3000`
-- Frontend: `http://localhost:5173`
-
-### Dev proxy (recommended)
-
-The frontend is configured with a Vite proxy so you can call the backend using `/api/...` without CORS pain during development.
-
-## Warmup / Cold Start Handling
-
-### Backend
-
-- `GET /api/warmup` responds quickly with a small JSON payload.
-
-### Frontend
-
-On first load, the app calls the warmup endpoint and shows a toast until it completes.
-- Code: `frontend/src/App.jsx`
-
-## API Overview (Backend)
-
-Base prefix: `/api`
-
-- **Auth** (`/api/auth`)
-  - `POST /register`
-  - `POST /login`
-  - `POST /logout`
-
-- **Products** (`/api/products`)
-  - `POST /create` (auth)
-  - `GET /` (auth)
-  - `GET /vendor/name` (auth)
-  - `GET /:id` (public, QR lookup)
-  - `POST /activate/:id` (auth)
-  - `POST /block/:id` (auth)
-  - `POST /update/:id` (auth)
-  - `POST /delete/:id` (auth; vendor owner or admin)
-
-- **Audit Logs** (`/api/audit`)
-  - `GET /all` (admin)
-  - `GET /qr/:qrCode` (admin)
-  - `GET /vendor` (vendor)
-  - `GET /product/:productId` (auth)
-  - `GET /public/product/:productId` (public)
-
-- **Admin** (`/api/admin`) (admin-only)
-  - `GET /dashboard/stats`
-  - `GET /users`, `GET /users/:id`, `PUT /users/:id/role`, `DELETE /users/:id`
-  - `GET /vendors`
-  - `GET /products`, `PATCH /products/:id/review`
-  - `GET /audit-logs`
-
-## Production Notes
-
-### One-command production start (deploy)
-
-From repo root:
-
-- Bash/sh:
-  - `npm install && npm start`
-- PowerShell:
-  - `npm install; npm start`
-
-In production, the backend serves the built frontend from `frontend/dist` (SPA fallback included).
-If your host doesn't set `NODE_ENV=production`, you can force it with `SERVE_CLIENT=true`.
-
-- **CORS**: set `CORS_ORIGIN` to your deployed frontend domain.
-- **Cookies**: auth uses an `httpOnly` cookie called `token`. In production, cookies are set with `secure: true` and `sameSite: none`.
-- **Frontend API base**: by default the frontend uses `/api`. If you need a different backend URL, set:
-  - `VITE_API_BASE_URL=https://your-backend-domain.com/api`
-
-## Troubleshooting
-
-- If login/register works locally but not in production: verify `CORS_ORIGIN`, HTTPS, and cookie settings.
-- If QR generation fails with Cloudinary: verify `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`.
-- If Cloudinary isn't configured/working, the backend automatically falls back to saving QR images under `backend/uploads/qrcodes` and serves them from `GET /uploads/qrcodes/...`.

@@ -1,4 +1,4 @@
-# �️ PyxMAFIA - Product Authentication & Anti-Counterfeiting Platform
+# 🛡️ PyxMAFIA - Product Authentication & Anti-Counterfeiting Platform
 
 <p align="center">
   <img src="https://img.shields.io/badge/Built%20with-MERN%20Stack-61DAFB?style=for-the-badge&logo=react" alt="MERN Stack"/>
@@ -32,6 +32,20 @@ PyxMAFIA provides a tamper-proof, easy-to-verify system where:
 - ✅ AI-powered fraud detection identifies suspicious scanning patterns
 - ✅ Complete audit trail tracks every verification attempt
 - ✅ Admin dashboard provides comprehensive oversight
+
+---
+
+## 📚 Documentation
+
+This repository is split into a backend + frontend. The root README is an overview; the detailed setup lives inside each app.
+
+- Backend (API, routes, scripts, `.env`): `src/backend/README.md`
+- Frontend (React app, `.env`, dev proxy): `src/frontend/README.md`
+
+Environment templates:
+
+- Backend env example: `src/backend/.env.example`
+- Frontend env example: `src/frontend/.env.example`
 
 ---
 
@@ -75,6 +89,7 @@ PyxMAFIA provides a tamper-proof, easy-to-verify system where:
 ### For Admins
 - 👥 **User Management** - Manage vendor and user accounts
 - 🔍 **Audit Logs** - Complete trail of all scans with IP and location data
+- 📨 **Contact Queries** - Inspect Contact Us submissions in detail (same dashboard)
 - 🚨 **Fraud Detection** - Automatic blocking of suspicious QR codes
 - 📊 **System-wide Analytics** - Monitor platform health and usage
 
@@ -178,15 +193,13 @@ cd FSD117-PYxMAFIA
 cd src/backend
 npm install
 
-# Create .env file with:
-# PORT=3000
-# MONGODB_URI=your_mongodb_connection_string
+# Create .env file (recommended: copy from .env.example)
+# See: src/backend/.env.example
+# Required:
+# MONGO_URI=your_mongodb_connection_string
 # jwt_secret=your_jwt_secret_key
-# NODE_ENV=development
-# CLOUDINARY_CLOUD_NAME=your_cloud_name
-# CLOUDINARY_API_KEY=your_api_key
-# CLOUDINARY_API_SECRET=your_api_secret
 # CORS_ORIGIN=http://localhost:5173
+# Optional (QR uploads): CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET
 
 npm run dev
 ```
@@ -196,8 +209,9 @@ npm run dev
 cd src/frontend
 npm install
 
-# Create .env file with:
-# VITE_API_URL=http://localhost:3000/api
+# Create .env file (recommended: copy from .env.example)
+# See: src/frontend/.env.example
+# VITE_API_BASE_URL=http://localhost:3000/api
 
 npm run dev
 ```
