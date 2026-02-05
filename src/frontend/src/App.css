@@ -1,5 +1,64 @@
 @import "tailwindcss";
 
+:root {
+  --vv-primary: #02394A;
+  --vv-primary-hover: #012136;
+  --vv-accent: #4C97A8;
+  --vv-accent-bg: #CCE7EC;
+  --vv-bg: #ffffff;
+  --vv-text: #070D15;
+}
+
+.vv-surface {
+  background: var(--vv-bg);
+  border: 1px solid rgba(2, 57, 74, 0.14);
+}
+
+.vv-muted {
+  color: rgba(7, 13, 21, 0.7);
+}
+
+.vv-link {
+  color: var(--vv-accent);
+}
+
+.vv-link:hover {
+  color: var(--vv-primary);
+}
+
+.vv-btn-primary {
+  background: var(--vv-primary);
+  color: #fff;
+}
+
+.vv-btn-primary:hover {
+  background: var(--vv-primary-hover);
+}
+
+.vv-btn-secondary {
+  background: var(--vv-bg);
+  color: var(--vv-primary);
+  border: 1px solid rgba(2, 57, 74, 0.18);
+}
+
+.vv-btn-secondary:hover {
+  background: rgba(204, 231, 236, 0.45);
+}
+
+.vv-btn-ghost {
+  background: rgba(204, 231, 236, 0.55);
+  color: var(--vv-primary);
+}
+
+.vv-btn-ghost:hover {
+  background: rgba(204, 231, 236, 0.8);
+}
+
+.vv-input:focus {
+  box-shadow: 0 0 0 3px rgba(2, 57, 74, 0.18);
+  border-color: rgba(2, 57, 74, 0.35);
+}
+
 
 *,
 *::before,
@@ -17,6 +76,6 @@ body {
   margin: 0;
   width: 100%;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  background-color: #f8fafc;
-  color: #0f172a;
+  background-color: var(--vv-bg);
+  color: var(--vv-text);
 }

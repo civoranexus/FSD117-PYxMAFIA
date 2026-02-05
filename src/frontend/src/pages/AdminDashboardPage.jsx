@@ -210,7 +210,7 @@ const AdminDashboardPage = () => {
 
   const [fakeReports, setFakeReports] = useState([])
   const [fakeReportTotal, setFakeReportTotal] = useState(0)
-  const [fakeReportNewTotal, setFakeReportNewTotal] = useState(0)
+  const [fakeReportSummary, setFakeReportSummary] = useState({ all: 0, new: 0, reviewed: 0, dismissed: 0, actioned: 0 })
   const [reportStatus, setReportStatus] = useState('new')
 
   const [contactMessages, setContactMessages] = useState([])
@@ -270,9 +270,16 @@ const AdminDashboardPage = () => {
     setFakeReportTotal(typeof data?.total === 'number' ? data.total : 0)
   }
 
-  const loadFakeReportNewCount = async () => {
-    const { data } = await apiClient.get(`${ADMIN_BASE}/fake-reports`, { params: { status: 'new', limit: 1 } })
-    setFakeReportNewTotal(typeof data?.total === 'number' ? data.total : 0)
+  const loadFakeReportSummary = async () => {
+    const { data } = await apiClient.get(`${ADMIN_BASE}/fake-reports/summary`)
+    const next = data?.counts
+    setFakeReportSummary({
+      all: typeof next?.all === 'number' ? next.all : 0,
+      new: typeof next?.new === 'number' ? next.new : 0,
+      reviewed: typeof next?.reviewed === 'number' ? next.reviewed : 0,
+      dismissed: typeof next?.dismissed === 'number' ? next.dismissed : 0,
+      actioned: typeof next?.actioned === 'number' ? next.actioned : 0,
+    })
   }
 
   const loadContactMessages = async ({ page, search, status } = {}) => {
@@ -330,7 +337,7 @@ const AdminDashboardPage = () => {
         loadSuspiciousProducts(),
         loadAuditLogs(),
         loadFakeReports({ status: reportStatus }),
-        loadFakeReportNewCount(),
+        loadFakeReportSummary(),
         loadContactMessages({ page: contactPage, search: contactSearch, status: contactStatus }),
       ])
     } catch (e) {
@@ -400,17 +407,17 @@ const AdminDashboardPage = () => {
       suspicious: Array.isArray(products) ? products.length : 0,
       vendors: Array.isArray(vendors) ? vendors.length : 0,
       logs: Array.isArray(auditLogs) ? auditLogs.length : 0,
-      reports: typeof fakeReportNewTotal === 'number' ? fakeReportNewTotal : 0,
+      reports: typeof fakeReportSummary?.new === 'number' ? fakeReportSummary.new : 0,
       contacts: typeof contactTotal === 'number' ? contactTotal : 0,
     }
-  }, [products, vendors, auditLogs, fakeReportNewTotal, contactTotal])
+  }, [products, vendors, auditLogs, fakeReportSummary, contactTotal])
 
   const updateFakeReport = async (id, payload) => {
     if (!id) return
     try {
       await apiClient.patch(`${ADMIN_BASE}/fake-reports/${encodeURIComponent(id)}`, payload)
       toast.success('Updated')
-      await Promise.all([loadFakeReports({ status: reportStatus }), loadFakeReportNewCount(), loadStats(), loadSuspiciousProducts()])
+      await Promise.all([loadFakeReports({ status: reportStatus }), loadFakeReportSummary(), loadStats(), loadSuspiciousProducts()])
     } catch (e) {
       toast.error(getApiErrorMessage(e, 'Failed to update report.'))
     }
@@ -575,6 +582,7 @@ const AdminDashboardPage = () => {
     if (qrStatus === 'active') return 'emerald'
     if (qrStatus === 'used') return 'sky'
     if (qrStatus === 'generated') return 'amber'
+    if (qrStatus === 'printed') return 'sky'
     return 'slate'
   }
 
@@ -653,7 +661,22 @@ const AdminDashboardPage = () => {
           </div>
 
           <div className="mt-6 bg-white rounded-2xl shadow-sm ring-1 ring-slate-200 p-3">
-            <div className="flex flex-wrap gap-2">
+            <div className="sm:hidden">
+              <label className="block text-xs font-semibold text-slate-700">Navigate</label>
+              <select
+                value={activeTab}
+                onChange={(e) => setActiveTab(e.target.value)}
+                className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-900/20"
+              >
+                {tabs.map((t) => (
+                  <option key={t.key} value={t.key}>
+                    {t.label} ({t.count})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="hidden sm:flex flex-wrap gap-2">
               {tabs.map((t) => {
                 const selected = activeTab === t.key
                 return (

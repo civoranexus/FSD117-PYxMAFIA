@@ -6,6 +6,7 @@ import toast from 'react-hot-toast'
 
 const STATUS = {
   GENERATED: 'generated',
+  PRINTED: 'printed',
   ACTIVE: 'active',
   USED: 'used',
   BLOCKED: 'blocked',
@@ -64,7 +65,7 @@ const VendorProductFormPage = () => {
       manufactureDate: toDateInputValue(p?.manufactureDate ?? p?.manufacturedAt ?? p?.mfgDate),
       expiryDate: toDateInputValue(p?.expiryDate ?? p?.expiresAt ?? p?.expDate),
       vendorName: p?.vendorName ?? vendorNameFixed ?? '',
-      // Backend enum: generated|active|used|blocked
+      // Backend enum: generated|printed|active|used|blocked
       qrStatus: p?.qrStatus ?? p?.status ?? (p?.isSuspicious ? STATUS.BLOCKED : STATUS.GENERATED),
       verificationCount: p?.verificationCount ?? 0,
       isSuspicious: p?.isSuspicious ?? false,

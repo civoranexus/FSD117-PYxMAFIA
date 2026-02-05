@@ -31,6 +31,7 @@ router.patch('/products/:id/review', adminController.reviewProduct);
 router.get('/audit-logs', adminController.getAuditLogs);
 
 // Fake reports (admin)
+router.get('/fake-reports/summary', fakeReportController.getFakeReportSummary);
 router.get('/fake-reports', fakeReportController.listFakeReports);
 router.patch('/fake-reports/:id', fakeReportController.updateFakeReport);
 

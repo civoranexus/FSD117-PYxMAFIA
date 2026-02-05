@@ -13,7 +13,7 @@ const parseBoolean = (value) => {
     return undefined;
 };
 
-const ALLOWED_QR_STATUS = new Set(["generated", "active", "used", "blocked"]);
+const ALLOWED_QR_STATUS = new Set(["generated", "printed", "active", "used", "blocked"]);
 
 const ALLOWED_CONTACT_STATUS = new Set(["new", "read", "replied"]);
 

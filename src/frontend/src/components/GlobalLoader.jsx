@@ -35,10 +35,10 @@ const GlobalLoader = () => {
       aria-live="polite"
       aria-label="Loading"
     >
-      <div className="mx-4 w-full max-w-sm rounded-2xl bg-white/95 p-6 shadow-xl ring-1 ring-slate-200">
+      <div className="vv-surface mx-4 w-full max-w-sm rounded-2xl bg-white/95 p-6 shadow-xl">
         <div className="flex items-center gap-4">
           <div
-            className="h-10 w-10 rounded-full border-[3px] border-slate-200 border-t-slate-900 animate-spin"
+            className="h-10 w-10 rounded-full border-[3px] border-[rgba(2,57,74,0.18)] border-t-[var(--vv-primary)] animate-spin"
             aria-hidden="true"
           />
           <div className="min-w-0">
@@ -49,8 +49,8 @@ const GlobalLoader = () => {
           </div>
         </div>
 
-        <div className="mt-4 h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
-          <div className="h-full w-1/2 animate-pulse rounded-full bg-slate-900" />
+        <div className="mt-4 h-1.5 w-full overflow-hidden rounded-full bg-[rgba(2,57,74,0.12)]">
+          <div className="h-full w-1/2 animate-pulse rounded-full bg-[var(--vv-primary)]" />
         </div>
       </div>
     </div>

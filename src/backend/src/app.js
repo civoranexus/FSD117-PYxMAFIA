@@ -10,6 +10,7 @@ import contactRouter from './routes/contact.routes.js';
 import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
+import { fileURLToPath } from 'url';
 
 const app = express();
 app.use(cookieParser());
@@ -26,9 +27,26 @@ if (!fs.existsSync(uploadsDir)) {
 }
 app.use('/uploads', express.static(uploadsDir));
 
-app.get('/', (req, res) => {
-  res.send('Hello World!');
+app.get('/api/health', (req, res) => {
+  res.json({ ok: true, service: 'backend' });
 });
+
+// Serve the frontend build in production (single-process deployment)
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const clientDistDir = path.resolve(__dirname, '../../frontend/dist');
+const shouldServeClient =
+  String(process.env.SERVE_CLIENT || '').toLowerCase() === 'true' ||
+  process.env.NODE_ENV === 'production';
+
+if (shouldServeClient && fs.existsSync(clientDistDir)) {
+  app.use(express.static(clientDistDir));
+
+  // SPA fallback: serve index.html for non-API routes
+  app.get(/^\/(?!api\/|uploads\/).*/, (req, res) => {
+    res.sendFile(path.join(clientDistDir, 'index.html'));
+  });
+}
 
 app.use('/api/auth', authRouter);
 app.use('/api/products', productRouter);

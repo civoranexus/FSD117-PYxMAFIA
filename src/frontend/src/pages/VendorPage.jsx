@@ -8,6 +8,7 @@ const PRODUCT_BASE = '/products'
 
 const STATUS = {
   GENERATED: 'generated',
+  PRINTED: 'printed',
   ACTIVE: 'active',
   USED: 'used',
   BLOCKED: 'blocked',
@@ -19,6 +20,12 @@ const statusMeta = {
     badge: 'bg-amber-100 text-amber-900 ring-1 ring-amber-200',
     card: 'bg-amber-50 ring-1 ring-amber-200',
     dot: 'bg-amber-500',
+  },
+  [STATUS.PRINTED]: {
+    label: 'Printed',
+    badge: 'bg-indigo-100 text-indigo-900 ring-1 ring-indigo-200',
+    card: 'bg-indigo-50 ring-1 ring-indigo-200',
+    dot: 'bg-indigo-500',
   },
   [STATUS.ACTIVE]: {
     label: 'Active',
@@ -134,7 +141,7 @@ const VendorPage = () => {
   }, [normalizedProducts])
 
   const counts = useMemo(() => {
-    const base = { all: vendorProducts.length, generated: 0, active: 0, used: 0, blocked: 0 }
+    const base = { all: vendorProducts.length, generated: 0, printed: 0, active: 0, used: 0, blocked: 0 }
     for (const p of vendorProducts) {
       if (base[p.qrStatus] !== undefined) base[p.qrStatus] += 1
       else base.generated += 1
@@ -150,6 +157,7 @@ const VendorPage = () => {
   const tabs = [
     { key: 'all', label: 'All', count: counts.all },
     { key: STATUS.GENERATED, label: 'Generated', count: counts.generated },
+    { key: STATUS.PRINTED, label: 'Printed', count: counts.printed },
     { key: STATUS.ACTIVE, label: 'Active', count: counts.active },
     { key: STATUS.USED, label: 'Used', count: counts.used },
     { key: STATUS.BLOCKED, label: 'Blocked', count: counts.blocked },
@@ -237,7 +245,7 @@ const VendorPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
+    <div className="min-h-screen bg-white flex flex-col">
       <NavigationBar />
 
       <main className="flex-1 px-4 pt-8 pb-10">
@@ -250,20 +258,20 @@ const VendorPage = () => {
             <div className="flex items-center gap-2">
               <button
                 onClick={() => navigate('/vendor/products/new', { state: { vendorName } })}
-                className="rounded-xl bg-slate-900 text-white px-4 py-2 text-sm font-semibold hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900/20"
+                className="vv-btn-primary rounded-xl px-4 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[rgba(2,57,74,0.25)]"
               >
                 Add product
               </button>
               <button
                 onClick={fetchProducts}
-                className="rounded-xl bg-slate-100 text-slate-900 px-4 py-2 text-sm font-semibold hover:bg-slate-200"
+                className="vv-btn-ghost rounded-xl px-4 py-2 text-sm font-semibold"
               >
                 Refresh
               </button>
             </div>
           </div>
 
-          <div className="mt-6 bg-white rounded-2xl shadow-sm ring-1 ring-slate-200 p-3">
+          <div className="vv-surface mt-6 rounded-2xl shadow-sm p-3">
             <div className="flex flex-wrap gap-2">
               {tabs.map((t) => {
                 const selected = activeTab === t.key
@@ -273,8 +281,8 @@ const VendorPage = () => {
                     onClick={() => setActiveTab(t.key)}
                     className={
                       selected
-                        ? 'rounded-xl bg-slate-900 text-white px-3 py-2 text-sm font-semibold'
-                        : 'rounded-xl bg-slate-100 text-slate-800 px-3 py-2 text-sm font-semibold hover:bg-slate-200'
+                        ? 'vv-btn-primary rounded-xl px-3 py-2 text-sm font-semibold'
+                        : 'vv-btn-ghost rounded-xl px-3 py-2 text-sm font-semibold'
                     }
                   >
                     {t.label}
@@ -381,7 +389,7 @@ const VendorPage = () => {
                               View details
                             </button>
 
-                            {p.qrStatus === STATUS.GENERATED ? (
+                            {p.qrStatus === STATUS.GENERATED || p.qrStatus === STATUS.PRINTED ? (
                               <button
                                 onClick={() => onActivate(p)}
                                 className={

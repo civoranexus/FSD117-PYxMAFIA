@@ -57,12 +57,12 @@ const RegisterPage = () => {
 
 
 return (
-  <div className="min-h-screen bg-slate-50">
+  <div className="min-h-screen bg-white">
     <NavigationBar tagline="Create your account" />
 
     <main className="px-4 py-10">
       <div className="mx-auto w-full max-w-md">
-        <div className="bg-white rounded-2xl shadow-sm ring-1 ring-slate-200 p-6">
+        <div className="vv-surface rounded-2xl shadow-sm p-6">
           <h1 className="text-2xl font-semibold text-slate-900">Create Vendor Account</h1>
           <p className="mt-2 text-sm text-slate-600">
             Sign up to access verification tools and vendor features.
@@ -78,7 +78,7 @@ return (
                 name="name"
                 type="text"
                 placeholder="Jane Doe"
-                className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-black/20 focus:border-slate-300"
+                className="vv-input mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm focus:outline-none"
               />
             </div>
 
@@ -92,7 +92,7 @@ return (
                 type="email"
                 autoComplete="email"
                 placeholder="you@example.com"
-                className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-black/20 focus:border-slate-300"
+                className="vv-input mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm focus:outline-none"
               />
             </div>
 
@@ -106,7 +106,7 @@ return (
                 type="tel"
                 autoComplete="tel"
                 placeholder="1234567890"
-                className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-black/20 focus:border-slate-300"
+                className="vv-input mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm focus:outline-none"
               />
             </div>
 
@@ -120,7 +120,7 @@ return (
                 type="password"
                 autoComplete="new-password"
                 placeholder="••••••••"
-                className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-black/20 focus:border-slate-300"
+                className="vv-input mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm focus:outline-none"
               />
             </div>
 
@@ -156,7 +156,7 @@ return (
             <button
               type="submit"
               disabled={submitting}
-              className="w-full rounded-xl bg-black text-white py-3 text-sm font-semibold hover:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-black/20 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+              className="w-full vv-btn-primary rounded-xl py-3 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[rgba(2,57,74,0.25)] cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {submitting ? 'Creating account…' : 'Register'}
             </button>
@@ -169,7 +169,7 @@ return (
 
             <p className="text-sm text-slate-600 text-center">
               Already have an account?{' '}
-              <Link to="/login" className="text-slate-900 underline underline-offset-4 hover:text-black">
+              <Link to="/login" className="vv-link underline underline-offset-4">
                 Login
               </Link>
             </p>

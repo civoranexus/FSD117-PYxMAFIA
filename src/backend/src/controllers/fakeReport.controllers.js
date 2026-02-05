@@ -161,10 +161,36 @@ async function updateFakeReport(req, res) {
   }
 }
 
+// Admin: lightweight counts (for dashboard badges)
+// GET /api/admin/fake-reports/summary
+async function getFakeReportSummary(req, res) {
+  try {
+    const rows = await FakeReport.aggregate([
+      { $group: { _id: '$status', count: { $sum: 1 } } },
+    ]);
+
+    const counts = rows.reduce(
+      (acc, r) => {
+        const key = typeof r?._id === 'string' ? r._id : 'unknown';
+        acc[key] = typeof r?.count === 'number' ? r.count : 0;
+        acc.all += typeof r?.count === 'number' ? r.count : 0;
+        return acc;
+      },
+      { all: 0, new: 0, reviewed: 0, dismissed: 0, actioned: 0 }
+    );
+
+    return res.status(200).json({ success: true, counts });
+  } catch (error) {
+    console.error('Error fetching fake report summary:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+}
+
 const fakeReportController = {
   createPublicFakeReport,
   listFakeReports,
   updateFakeReport,
+  getFakeReportSummary,
 };
 
 export default fakeReportController;

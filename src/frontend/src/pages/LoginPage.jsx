@@ -52,12 +52,12 @@ const LoginPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-white">
       <NavigationBar/>
 
       <main className="px-4 py-10">
         <div className="mx-auto w-full max-w-md">
-          <div className="bg-white rounded-2xl shadow-sm ring-1 ring-slate-200 p-6">
+          <div className="vv-surface rounded-2xl shadow-sm p-6">
             <h1 className="text-2xl font-semibold text-slate-900">Vendor Login</h1>
             <p className="mt-2 text-sm text-slate-600">
               Enter your credentials to continue.
@@ -74,7 +74,7 @@ const LoginPage = () => {
                   type="email"
                   autoComplete="email"
                   placeholder="you@example.com"
-                  className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-black/20 focus:border-slate-300"
+                  className="vv-input mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm focus:outline-none"
                 />
               </div>
 
@@ -88,14 +88,14 @@ const LoginPage = () => {
                   type="password"
                   autoComplete="current-password"
                   placeholder="••••••••"
-                  className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-black/20 focus:border-slate-300"
+                  className="vv-input mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm focus:outline-none"
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full rounded-xl bg-black text-white py-3 text-sm font-semibold hover:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-black/20 disabled:opacity-60 disabled:cursor-not-allowed"
+                className="w-full vv-btn-primary rounded-xl py-3 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[rgba(2,57,74,0.25)] disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {submitting ? 'Logging in…' : 'Login'}
               </button>
@@ -107,13 +107,13 @@ const LoginPage = () => {
               ) : null}
 
               <div className="flex items-center justify-between text-sm">
-                <a href="#" className="text-slate-600 hover:text-slate-900 underline underline-offset-4">
+                <a href="#" className="vv-link underline underline-offset-4">
                   Forgot password?
                 </a>
 
                 <Link
                   to="/register"
-                  className="text-slate-600 hover:text-slate-900 underline underline-offset-4"
+                  className="vv-link underline underline-offset-4"
                 >
                   Create an account
                 </Link>

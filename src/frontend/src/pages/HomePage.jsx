@@ -164,7 +164,7 @@ const onPickImage = async (e) => {
 }
 
 return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
+    <div className="min-h-screen bg-white flex flex-col">
         <NavigationBar />
 
         <main className="flex-1 pb-24">
@@ -183,16 +183,16 @@ return (
 
             <section id="scan" className="px-4 mt-8">
                 <div className="mx-auto w-full max-w-lg">
-                    <div className="bg-white rounded-2xl shadow-sm ring-1 ring-slate-200 p-5">
+                    <div className="vv-surface rounded-2xl shadow-sm p-5">
 
                         {/* Camera Preview Box */}
                         <div
-                            className="w-full h-56 bg-slate-100 rounded-xl flex items-center justify-center overflow-hidden ring-1 ring-slate-200"
+                            className="w-full h-56 rounded-xl flex items-center justify-center overflow-hidden bg-[rgba(204,231,236,0.55)] ring-1 ring-[rgba(2,57,74,0.14)]"
                         >
                             {showScanner ? (
                                 <QRScanner onScan={handleScan} />
                             ) : (
-                                <span className="text-slate-400 text-sm">Camera Preview Area</span>
+                                <span className="text-[rgba(7,13,21,0.55)] text-sm">Camera Preview Area</span>
                             )}
                         </div>
 
@@ -200,7 +200,7 @@ return (
                             <button
                                 onClick={() => setShowScanner(true)}
                                 disabled={isVerifying}
-                                className="w-full bg-black text-white py-3 rounded-xl font-semibold hover:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-black/20 disabled:opacity-60 disabled:cursor-not-allowed"
+                                className="w-full vv-btn-primary py-3 rounded-xl font-semibold focus:outline-none focus:ring-2 focus:ring-[rgba(2,57,74,0.25)] disabled:opacity-60 disabled:cursor-not-allowed"
                             >
                                 {isVerifying ? 'Verifying…' : 'Use Camera'}
                             </button>
@@ -209,7 +209,7 @@ return (
                                 type="button"
                                 onClick={() => fileInputRef.current?.click()}
                                 disabled={isVerifying}
-                                className="w-full bg-white text-slate-900 py-3 rounded-xl font-semibold ring-1 ring-slate-200 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-black/10 disabled:opacity-60 disabled:cursor-not-allowed"
+                                className="w-full vv-btn-secondary py-3 rounded-xl font-semibold focus:outline-none focus:ring-2 focus:ring-[rgba(2,57,74,0.18)] disabled:opacity-60 disabled:cursor-not-allowed"
                             >
                                 Upload QR Image
                             </button>

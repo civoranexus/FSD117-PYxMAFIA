@@ -103,7 +103,7 @@ async function getProductByQRCode(req, res) {
         } else if (product.qrStatus === "used") {
             scanResult = "AlreadyUsed";
         } else {
-            // generated or unknown => not yet activated
+            // generated/printed/unknown => not yet activated
             scanResult = "Invalid";
             message = 'This product is not active yet. Please ask the vendor/admin to activate it.';
         }
@@ -253,9 +253,15 @@ async function activateProduct(req, res) {
             return res.status(403).json({ message: 'Unauthorized to activate this product' });
         }
 
-        product.qrStatus = "active";
-        await product.save();
-        res.status(200).json({ message: 'Product activated successfully', product });
+        // Avoid full-document validation issues on older/partial documents.
+        await productModel.updateOne(
+            { _id: product._id },
+            { $set: { qrStatus: 'active' } },
+            { runValidators: false }
+        );
+
+        const updated = await productModel.findById(product._id);
+        res.status(200).json({ message: 'Product activated successfully', product: updated });
     } catch (error) {
         console.error("Error activating product:", error);
         res.status(500).json({ message: 'Internal server error' });
@@ -273,9 +279,15 @@ async function blockProduct(req, res) {
         if (product.vendorId.toString() !== vendorId.toString() && req.user.role !== 'admin') {
             return res.status(403).json({ message: 'Unauthorized to block this product' });
         }
-        product.qrStatus = "blocked";
-        await product.save();
-        res.status(200).json({ message: 'Product blocked successfully', product });
+
+        await productModel.updateOne(
+            { _id: product._id },
+            { $set: { qrStatus: 'blocked' } },
+            { runValidators: false }
+        );
+
+        const updated = await productModel.findById(product._id);
+        res.status(200).json({ message: 'Product blocked successfully', product: updated });
     } catch (error) {
         console.error("Error blocking product:", error);
         res.status(500).json({ message: 'Internal server error' });

@@ -102,6 +102,19 @@ PUBLIC_BASE_URL=http://localhost:3000
 
 ### 2) Install deps
 
+Recommended (installs **backend + frontend** deps from repo root):
+
+```bash
+npm install
+```
+
+This runs a root `postinstall` script that:
+- installs `backend/node_modules`
+- installs `frontend/node_modules`
+- builds the frontend into `frontend/dist`
+
+Alternative (manual):
+
 Backend:
 ```bash
 cd backend
@@ -115,6 +128,14 @@ npm install
 ```
 
 ## Run Locally
+
+Recommended (dev mode, two servers):
+
+```bash
+npm run dev
+```
+
+Manual (two terminals):
 
 Terminal 1 (backend):
 ```bash
@@ -180,6 +201,18 @@ Base prefix: `/api`
   - `GET /audit-logs`
 
 ## Production Notes
+
+### One-command production start (deploy)
+
+From repo root:
+
+- Bash/sh:
+  - `npm install && npm start`
+- PowerShell:
+  - `npm install; npm start`
+
+In production, the backend serves the built frontend from `frontend/dist` (SPA fallback included).
+If your host doesn't set `NODE_ENV=production`, you can force it with `SERVE_CLIENT=true`.
 
 - **CORS**: set `CORS_ORIGIN` to your deployed frontend domain.
 - **Cookies**: auth uses an `httpOnly` cookie called `token`. In production, cookies are set with `secure: true` and `sameSite: none`.
