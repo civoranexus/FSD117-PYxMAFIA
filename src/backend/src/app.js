@@ -15,10 +15,38 @@ import { fileURLToPath } from 'url';
 const app = express();
 app.use(cookieParser());
 
-const allowedOrigins = String(process.env.CORS_ORIGIN || "https://vendorverify-8os4.vercel.app/" || "https://vendorverify-8os4-9v40ogv7i-pyxmafias-projects.vercel.app/" || 'http://localhost:5173' )
+const normalizeOrigin = (value) => {
+  if (typeof value !== 'string') return '';
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+  // origins never include a trailing slash; normalize to avoid mismatches
+  return trimmed.replace(/\/+$/, '');
+};
+
+const rawAllowed = String(process.env.CORS_ORIGIN || 'http://localhost:5173');
+const allowedOriginRules = rawAllowed
   .split(',')
   .map((v) => v.trim())
-  .filter(Boolean);
+  .filter(Boolean)
+  .map(normalizeOrigin);
+
+const isAllowedByRule = (origin, rule) => {
+  if (!origin || !rule) return false;
+  if (origin === rule) return true;
+
+  // Wildcard support: "*.vercel.app" matches any subdomain on that host.
+  if (rule.startsWith('*.')) {
+    try {
+      const originUrl = new URL(origin);
+      const domain = rule.slice(2).toLowerCase();
+      return originUrl.hostname.toLowerCase().endsWith(`.${domain}`) || originUrl.hostname.toLowerCase() === domain;
+    } catch {
+      return false;
+    }
+  }
+
+  return false;
+};
 
 app.use(
   cors({
@@ -26,11 +54,14 @@ app.use(
       // Allow non-browser requests (no Origin header)
       if (!origin) return callback(null, true);
 
-      if (allowedOrigins.includes(origin)) return callback(null, true);
+      const normalized = normalizeOrigin(origin);
+      const allowed = allowedOriginRules.some((rule) => isAllowedByRule(normalized, rule));
+      if (allowed) return callback(null, true);
 
       return callback(new Error(`CORS blocked for origin: ${origin}`));
     },
     credentials: true,
+    optionsSuccessStatus: 204,
   })
 );
 app.use(express.json());
