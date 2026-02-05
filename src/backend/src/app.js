@@ -15,7 +15,7 @@ import { fileURLToPath } from 'url';
 const app = express();
 app.use(cookieParser());
 
-const allowedOrigins = String(process.env.CORS_ORIGIN || 'http://localhost:5173')
+const allowedOrigins = String(process.env.CORS_ORIGIN || "https://vendorverify-8os4.vercel.app/" || "https://vendorverify-8os4-9v40ogv7i-pyxmafias-projects.vercel.app/" || 'http://localhost:5173' )
   .split(',')
   .map((v) => v.trim())
   .filter(Boolean);
