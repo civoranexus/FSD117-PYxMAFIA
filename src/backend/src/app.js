@@ -1,18 +1,24 @@
-//create backend server/app
+/**
+ * Express Application Configuration
+ */
 import express from 'express';
 import cookieParser from 'cookie-parser';
+import cors from 'cors';
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
+
+// Route Imports
 import authRouter from './routes/auth.routes.js';
 import productRouter from './routes/product.routes.js';
 import auditRouter from './routes/auditLog.routes.js';
 import adminRouter from './routes/admin.routes.js';
 import warmupRouter from './routes/warmup.routes.js';
 import contactRouter from './routes/contact.routes.js';
-import cors from 'cors';
-import path from 'path';
-import fs from 'fs';
-import { fileURLToPath } from 'url';
 
 const app = express();
+
+// Standard Middleware
 app.use(cookieParser());
 
 const normalizeOrigin = (value) => {
@@ -48,6 +54,7 @@ const isAllowedByRule = (origin, rule) => {
   return false;
 };
 
+// CORS Configuration
 app.use(
   cors({
     origin: (origin, callback) => {

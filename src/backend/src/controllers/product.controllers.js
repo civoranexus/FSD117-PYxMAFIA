@@ -6,6 +6,11 @@ import geoip from "geoip-lite";
 import User from "../models/user.model.js";
 
 
+/**
+ * Create a new product.
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
 async function createProduct(req, res) {
     try {
         const { productName, description, price, category, stock, batchId, manufactureDate, expiryDate } = req.body;
@@ -13,6 +18,7 @@ async function createProduct(req, res) {
         const vendorId = req.user._id;
         const vendorName = req.user.name;
 
+        // Generate unique QR code and image
         const qrCode = crypto.randomBytes(32).toString("hex");
         const qrImageUrl = await generateQR(qrCode);
 
@@ -27,32 +33,45 @@ async function createProduct(req, res) {
             expiryDate,
             vendorId,
             vendorName,
-            // Make newly created products immediately scannable.
-            qrStatus: "active",
+            qrStatus: "active", // Immediately active
             qrCode,
             qrImageUrl
         });
+
         await newProduct.save();
-        res.status(201).json({ message: 'Product created successfully', productId: newProduct._id });
+
+        res.status(201).json({
+            message: 'Product created successfully',
+            productId: newProduct._id
+        });
+
     } catch (error) {
         console.error("Error creating product:", error);
+
         if (error?.name === 'ValidationError') {
             return res.status(400).json({
                 message: error?.message || 'Product validation failed',
                 errors: error?.errors ? Object.keys(error.errors) : undefined,
             });
         }
+
         if (error?.code === 11000) {
             return res.status(409).json({ message: 'Duplicate value error. Please retry.' });
         }
+
         res.status(500).json({ message: 'Internal server error' });
     }
 }
 
+/**
+ * Get all products for the logged-in vendor.
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
 async function getProducts(req, res) {
     const vendorId = req.user._id;
     try {
-        const products = await productModel.find({ vendorId }); // fetch products for the logged in vendor
+        const products = await productModel.find({ vendorId }).sort({ createdAt: -1 });
         res.status(200).json(products);
     } catch (error) {
         console.error("Error fetching products:", error);
@@ -60,107 +79,45 @@ async function getProducts(req, res) {
     }
 }
 
+/**
+ * Scan a product QR code and verify its status.
+ * Handles fraud detection logic (location, speed, reuse).
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
 async function getProductByQRCode(req, res) {
     const { id: qrCode } = req.params;
 
     try {
         const normalizedQr = typeof qrCode === 'string' ? qrCode.trim() : '';
+        // Find product by QR
         const product = await productModel.findOne({ qrCode: normalizedQr });
 
-        // If the QR does not exist => Invalid
         if (!product) {
             return res.status(404).json({ status: "Invalid" });
         }
 
-        // Current request context (needed for fraud checks)
-        let ip =
-            req.headers["x-forwarded-for"]?.split(",")[0] ||
-            req.socket.remoteAddress;
-
-        if (ip === "::1" || ip === "127.0.0.1") ip = "8.8.8.8";
+        // 1. Resolve Request Context (IP & Location)
+        let ip = req.headers["x-forwarded-for"]?.split(",")[0] || req.socket.remoteAddress;
+        if (ip === "::1" || ip === "127.0.0.1") ip = "8.8.8.8"; // Localhost fallback
 
         const geo = geoip.lookup(ip);
         const location = geo
             ? `${geo.city || "Unknown"}, ${geo.country || "Unknown"}`
             : "Unknown";
 
-        // Determine status
-        let scanResult = "Invalid";
-        let message = undefined;
+        // 2. Run Safety Analysis
+        const safetyResult = await analyzeScanSafety(product, normalizedQr, ip, location);
 
-        const now = new Date();
-        const expiry = product?.expiryDate ? new Date(product.expiryDate) : null;
-        const isExpired = expiry && !Number.isNaN(expiry.getTime()) && now.getTime() > expiry.getTime();
+        const {
+            scanResult,
+            message,
+            isExpired,
+            setUpdate,
+            incUpdate
+        } = safetyResult;
 
-        if (product.qrStatus === "blocked") {
-            scanResult = "Blocked";
-            message = 'This product has been blocked.';
-        } else if (isExpired) {
-            scanResult = "Expired";
-            message = `This product is expired. Expired on ${expiry.toDateString()}.`;
-        } else if (product.qrStatus === "active") {
-            scanResult = "Valid";
-        } else if (product.qrStatus === "used") {
-            scanResult = "AlreadyUsed";
-        } else {
-            // generated/printed/unknown => not yet activated
-            scanResult = "Invalid";
-            message = 'This product is not active yet. Please ask the vendor/admin to activate it.';
-        }
-
-        // Continuous monitoring:
-        // if the QR is repeatedly scanned in short window or from different IP/locations,
-        // or continues being scanned too much after already used, consider it compromised.
-        const WINDOW_MS = 2 * 60 * 1000;
-        const recentScans = await AuditLog.find({
-            qrCode: normalizedQr,
-            scannedAt: { $gte: new Date(Date.now() - WINDOW_MS) }
-        }).select('ipAddress location scanResult scannedAt');
-
-        const scanCountWithThis = recentScans.length + 1;
-        const uniqueIPs = new Set(recentScans.map(log => log.ipAddress).filter(Boolean));
-        uniqueIPs.add(ip);
-
-        const uniqueLocations = new Set(recentScans.map(log => log.location).filter(Boolean));
-        uniqueLocations.add(location);
-
-        const MAX_SCANS_IN_WINDOW = 5;
-        const MAX_SCANS_AFTER_USED = 3;
-        const MULTI_IP_THRESHOLD = 2;
-        const MULTI_LOCATION_THRESHOLD = 2;
-
-        const isRapidRepeat = scanCountWithThis > MAX_SCANS_IN_WINDOW;
-        const isMultiIp = uniqueIPs.size > MULTI_IP_THRESHOLD;
-        const isMultiLocation = uniqueLocations.size > MULTI_LOCATION_THRESHOLD;
-        const isRepeatedAfterUsed = product.qrStatus === "used" && scanCountWithThis > MAX_SCANS_AFTER_USED;
-
-        const compromised = (scanResult !== "Blocked") && (isRapidRepeat || isMultiIp || isMultiLocation || isRepeatedAfterUsed);
-
-        // IMPORTANT:
-        // Do NOT call product.save() here.
-        // Some older/partial product documents in the DB may fail full schema validation,
-        // which would break QR verification with "Product validation failed".
-        // Instead, persist only the fields we changed via updateOne (no full validation).
-
-        const setUpdate = {};
-        const incUpdate = {};
-
-        if (compromised) {
-            setUpdate.isSuspicious = true;
-            setUpdate.qrStatus = 'blocked';
-            scanResult = 'Blocked';
-        } else {
-            // If expired, do not transition active->used.
-            if (!isExpired && product.qrStatus === 'active') {
-                setUpdate.qrStatus = 'used';
-            }
-
-            if (scanResult === 'Valid' || scanResult === 'AlreadyUsed' || scanResult === 'Expired') {
-                incUpdate.verificationCount = 1;
-                setUpdate.lastVerifiedAt = now;
-            }
-        }
-
+        // 3. Persist Updates (Partial update to avoid schema validation errors on legacy data)
         if (Object.keys(setUpdate).length || Object.keys(incUpdate).length) {
             const updateDoc = {};
             if (Object.keys(setUpdate).length) updateDoc.$set = setUpdate;
@@ -173,34 +130,17 @@ async function getProductByQRCode(req, res) {
             );
         }
 
-        // Best-effort audit logging (should not break verification UI)
-        if (product?._id && product?.vendorId) {
-            try {
-                await AuditLog.create({
-                    productId: product._id,
-                    qrCode: normalizedQr,
-                    vendorId: product.vendorId,
-                    scanResult,
-                    ipAddress: ip,
-                    location,
-                    userAgent: req.headers["user-agent"]
-                });
-            } catch (auditErr) {
-                console.warn('Audit log write failed:', auditErr?.message || auditErr);
-            }
-        } else {
-            console.warn('Skipping audit log: missing productId/vendorId for qr', normalizedQr);
-        }
+        // 4. Log Audit (Best effort)
+        logScanAttempt(product, normalizedQr, scanResult, ip, location, req.headers["user-agent"]);
 
-        // Build response product using the in-memory product + our updates
-        const productObj = typeof product?.toObject === 'function' ? product.toObject() : product;
+        // 5. Build Response
         const responseProduct = {
-            ...(productObj || {}),
-            ...(Object.keys(setUpdate).length ? setUpdate : {}),
+            ...(product.toObject?.() || product),
+            ...setUpdate
         };
+
         if (incUpdate.verificationCount) {
-            const current = Number(responseProduct.verificationCount || 0);
-            responseProduct.verificationCount = current + incUpdate.verificationCount;
+            responseProduct.verificationCount = (responseProduct.verificationCount || 0) + incUpdate.verificationCount;
         }
 
         return res.status(200).json({
@@ -217,7 +157,108 @@ async function getProductByQRCode(req, res) {
     }
 }
 
+/**
+ * Helper: Analyzes scan risks and determines status.
+ */
+async function analyzeScanSafety(product, qrCode, ip, location) {
+    const now = new Date();
+    const expiry = product?.expiryDate ? new Date(product.expiryDate) : null;
+    const isExpired = expiry && !Number.isNaN(expiry.getTime()) && now.getTime() > expiry.getTime();
 
+    let scanResult = "Invalid";
+    let message = undefined;
+
+    // A) Initial Status Check
+    if (product.qrStatus === "blocked") {
+        scanResult = "Blocked";
+        message = 'This product has been blocked.';
+    } else if (isExpired) {
+        scanResult = "Expired";
+        message = `This product is expired. Expired on ${expiry.toDateString()}.`;
+    } else if (product.qrStatus === "active") {
+        scanResult = "Valid";
+    } else if (product.qrStatus === "used") {
+        scanResult = "AlreadyUsed";
+    } else {
+        scanResult = "Invalid";
+        message = 'This product is not active yet.';
+    }
+
+    // B) Fraud/Risk Detection
+    const WINDOW_MS = 2 * 60 * 1000; // 2 minutes
+    const recentScans = await AuditLog.find({
+        qrCode,
+        scannedAt: { $gte: new Date(Date.now() - WINDOW_MS) }
+    }).select('ipAddress location scanResult scannedAt');
+
+    const scanCountWithThis = recentScans.length + 1;
+    const uniqueIPs = new Set([...recentScans.map(l => l.ipAddress).filter(Boolean), ip]);
+    const uniqueLocations = new Set([...recentScans.map(l => l.location).filter(Boolean), location]);
+
+    const MAX_SCANS_IN_WINDOW = 5;
+    const MAX_SCANS_AFTER_USED = 3;
+    const MULTI_IP_THRESHOLD = 2;
+    const MULTI_LOCATION_THRESHOLD = 2;
+
+    const isRapidRepeat = scanCountWithThis > MAX_SCANS_IN_WINDOW;
+    const isMultiIp = uniqueIPs.size > MULTI_IP_THRESHOLD;
+    const isMultiLocation = uniqueLocations.size > MULTI_LOCATION_THRESHOLD;
+    const isRepeatedAfterUsed = product.qrStatus === "used" && scanCountWithThis > MAX_SCANS_AFTER_USED;
+
+    // Determine compromise
+    const isCompromised = (scanResult !== "Blocked") &&
+        (isRapidRepeat || isMultiIp || isMultiLocation || isRepeatedAfterUsed);
+
+    // C) Prepare Updates
+    const setUpdate = {};
+    const incUpdate = {};
+
+    if (isCompromised) {
+        setUpdate.isSuspicious = true;
+        setUpdate.qrStatus = 'blocked';
+        scanResult = 'Blocked';
+    } else {
+        // Normal state transitions
+        if (!isExpired && product.qrStatus === 'active') {
+            setUpdate.qrStatus = 'used';
+        }
+
+        if (['Valid', 'AlreadyUsed', 'Expired'].includes(scanResult)) {
+            incUpdate.verificationCount = 1;
+            setUpdate.lastVerifiedAt = now;
+        }
+    }
+
+    return { scanResult, message, isExpired, setUpdate, incUpdate };
+}
+
+/**
+ * Helper: Async Fire-and-forget audit logging
+ */
+async function logScanAttempt(product, qrCode, scanResult, ip, location, userAgent) {
+    if (!product?._id || !product?.vendorId) return;
+
+    try {
+        await AuditLog.create({
+            productId: product._id,
+            qrCode,
+            vendorId: product.vendorId,
+            scanResult,
+            ipAddress: ip,
+            location,
+            userAgent
+        });
+    } catch (err) {
+        console.warn('Audit log write failed:', err.message);
+    }
+}
+
+
+/**
+ * Delete a product.
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
 async function deleteProduct(req, res) {
     const { id: productId } = req.params;
     const requesterId = req.user._id;
@@ -241,6 +282,11 @@ async function deleteProduct(req, res) {
     }
 }
 
+/**
+ * Activate a product (Vendor only).
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
 async function activateProduct(req, res) {
     const { id } = req.params;
     const vendorId = req.user._id;
@@ -268,6 +314,11 @@ async function activateProduct(req, res) {
     }
 }
 
+/**
+ * Block a product.
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
 async function blockProduct(req, res) {
     const { id } = req.params;
     const vendorId = req.user._id;
@@ -294,6 +345,11 @@ async function blockProduct(req, res) {
     }
 }
 
+/**
+ * Update product details (expiry date is immutable).
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
 async function updateProduct(req, res) {
     const { id } = req.params;
     const vendorId = req.user._id;
@@ -338,6 +394,11 @@ async function updateProduct(req, res) {
     }
 }
 
+/**
+ * Get vendor name by ID.
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
 async function vendorName(req, res) {
     const vendorId = req.user._id;
     try {
@@ -355,6 +416,11 @@ async function vendorName(req, res) {
 // Vendor/Admin: product details by productId + full audit logs.
 // - Vendor can only access their own products.
 // - Admin can access any product.
+/**
+ * Get full product details and audit logs (Vendor/Admin).
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
 async function getVendorProductDetails(req, res) {
     const { id: productId } = req.params;
     const requester = req.user;
@@ -392,6 +458,12 @@ async function getVendorProductDetails(req, res) {
     }
 }
 
+/**
+ * Regenerate QR code for a product (Vendor/Admin).
+ * Invalidates old QR codes.
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
 async function regenerateProductQr(req, res) {
     const { id: productId } = req.params;
     const requester = req.user;

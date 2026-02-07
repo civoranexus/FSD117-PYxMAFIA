@@ -19,9 +19,6 @@ router.delete('/users/:id', adminController.deleteUser);
 
 // Vendor management
 router.get('/vendors', adminController.getAllVendors);
-router.get('/vendors/:id/summary', adminController.getVendorSummary);
-router.patch('/vendors/:id/block', adminController.setVendorBlockedStatus);
-router.patch('/vendors/:id/unblock', adminController.setVendorBlockedStatus);
 
 // Product management (admin view)
 router.get('/products', adminController.getAllProducts);
@@ -30,14 +27,14 @@ router.patch('/products/:id/review', adminController.reviewProduct);
 // Audit logs
 router.get('/audit-logs', adminController.getAuditLogs);
 
-// Fake reports (admin)
-router.get('/fake-reports/summary', fakeReportController.getFakeReportSummary);
-router.get('/fake-reports', fakeReportController.listFakeReports);
-router.patch('/fake-reports/:id', fakeReportController.updateFakeReport);
-
 // Contact-us queries (admin)
 router.get('/contact-messages', adminController.getContactMessages);
 router.get('/contact-messages/:id', adminController.getContactMessageById);
 router.patch('/contact-messages/:id/status', adminController.updateContactMessageStatus);
+
+// Fake reports (admin)
+router.get('/fake-reports', fakeReportController.listFakeReports);
+router.get('/fake-reports/summary', fakeReportController.getFakeReportSummary);
+router.patch('/fake-reports/:id', fakeReportController.updateFakeReport);
 
 export default router;
