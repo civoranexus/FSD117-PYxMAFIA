@@ -9,7 +9,11 @@ export const generateQR = async (token) => {
     const qrBuffer = await QRCode.toBuffer(token);
 
     const sanitizedToken = String(token).slice(0, 32);
-    const publicBaseUrl = process.env.PUBLIC_BASE_URL || `http://localhost:${process.env.PORT || 3000}`;
+
+    // Optional: explicitly configured public base URL for assets (for multi-origin setups)
+    // Example: https://your-backend.example.com or https://your-frontend.example.com
+    const rawPublicBase = process.env.PUBLIC_BASE_URL;
+    const publicBaseUrl = rawPublicBase ? rawPublicBase.replace(/\/+$/u, "") : "";
 
     const hasCloudinaryConfig = Boolean(
       process.env.CLOUDINARY_CLOUD_NAME &&
@@ -62,7 +66,15 @@ export const generateQR = async (token) => {
     const filePath = path.join(uploadDir, fileName);
     fs.writeFileSync(filePath, qrBuffer);
 
-    return `${publicBaseUrl}/uploads/qrcodes/${fileName}`;
+    // If a PUBLIC_BASE_URL is provided, return an absolute URL (useful when
+    // frontend and backend are on different origins). Otherwise, return a
+    // relative URL that works for single-process deployments where the
+    // backend also serves the frontend and /uploads.
+    if (publicBaseUrl) {
+      return `${publicBaseUrl}/uploads/qrcodes/${fileName}`;
+    }
+
+    return `/uploads/qrcodes/${fileName}`;
   } catch (error) {
     console.error("Error generating QR code:", error);
     throw new Error(`Failed to generate QR code: ${error?.message || error}`);
