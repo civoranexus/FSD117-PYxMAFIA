@@ -1,0 +1,15 @@
+{
+  "name": "fsd117-pyxmafia-root",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "postinstall": "npm install --prefix src",
+    "build": "npm run build --prefix src",
+    "start": "npm start --prefix src",
+    "deploy": "npm run deploy --prefix src",
+    "dev": "npm run dev --prefix src"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
